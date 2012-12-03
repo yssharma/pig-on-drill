@@ -20,10 +20,11 @@ ScanJson::ScanJson(const char * source) :
 		msgpack_sbuffer_init(&sbuf);
 		msgpack_packer pk;
 		msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
-		to_msgpack(node, &pk);
+		SchemaPacker schema_pk;
+		to_msgpack(node, &pk, &schema_pk, NULL);
 		msgpack_unpack(sbuf.data, sbuf.size, NULL, &mempool, pack_object);
 
-		// Hardcoding to expect a map since the root object that's valid for JSON is a map
+		//FIXME: Hardcoding to expect a map since the root object that's valid for JSON is a map
 		pack_object = &pack_object->via.map.ptr->val;
 
 		if (pack_object->type == MSGPACK_OBJECT_ARRAY) {
@@ -58,14 +59,15 @@ msgpack_object * ScanJson::next() {
 	return return_object;
 }
 
-void ScanJson::to_msgpack(yajl_val curNode, msgpack_packer * packer) {
+void ScanJson::to_msgpack(yajl_val curNode, msgpack_packer * packer, SchemaPacker * schema_packer, const char * key, size_t key_length) {
 	switch (curNode->type) {
 	case yajl_t_array: {
 		unsigned int length = YAJL_GET_ARRAY(curNode)->len;
 		yajl_val * array_values = YAJL_GET_ARRAY(curNode)->values;
 		msgpack_pack_array(packer, length);
+		schema_packer->pack_array(length, key, key_length);
 		for (unsigned int i = 0; i < length; ++i) {
-			to_msgpack(*array_values, packer);
+			to_msgpack(*array_values, packer, schema_packer);
 			array_values += 1;
 		}
 	}
@@ -76,13 +78,16 @@ void ScanJson::to_msgpack(yajl_val curNode, msgpack_packer * packer) {
 		size_t string_length = strlen(string);
 		msgpack_pack_raw(packer, string_length);
 		msgpack_pack_raw_body(packer, string, string_length);
+		schema_packer->pack_string(key, key_length);
 	}
 		break;
 	case yajl_t_number: {
 		if (curNode->u.number.flags & YAJL_NUMBER_DOUBLE_VALID) {
 			msgpack_pack_double(packer, YAJL_GET_DOUBLE(curNode));
+			schema_packer->pack_double(key, key_length);
 		} else {
 			msgpack_pack_long_long(packer, YAJL_GET_INTEGER(curNode));
+			schema_packer->pack_int(key, key_length);
 		}
 	}
 		break;
@@ -92,23 +97,27 @@ void ScanJson::to_msgpack(yajl_val curNode, msgpack_packer * packer) {
 
 		yajl_val * values = YAJL_GET_OBJECT(curNode)->values;
 		msgpack_pack_map(packer, obj_length);
+		schema_packer->pack_map(obj_length);
 		for (unsigned int i = 0; i < obj_length; ++i) {
 			const char * cur_key = *(keys + i);
 			size_t string_length = strlen(cur_key);
 			msgpack_pack_raw(packer, string_length);
 			msgpack_pack_raw_body(packer, cur_key, string_length);
-			to_msgpack(*(values + i), packer);
+			to_msgpack(*(values + i), packer, schema_packer, cur_key, string_length);
 		}
 	}
 		break;
 	case yajl_t_true:
 		msgpack_pack_true(packer);
+		schema_packer->pack_boolean(key, key_length);
 		break;
 	case yajl_t_false:
 		msgpack_pack_false(packer);
+		schema_packer->pack_boolean(key, key_length);
 		break;
 	case yajl_t_null:
 		msgpack_pack_nil(packer);
+		schema_packer->pack_unknown(key, key_length);
 		break;
 	default:
 		break;

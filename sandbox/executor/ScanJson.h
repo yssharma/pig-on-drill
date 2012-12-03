@@ -10,6 +10,7 @@
 
 #include "Operator.h"
 #include <msgpack.h>
+#include "Schema.h"
 #include "yajl/yajl_tree.h"
 
 using namespace std;
@@ -26,7 +27,7 @@ private:
 	int row_length;
 	int cur_idx;
 	yajl_val read_json(const char * source, char * error);
-	void to_msgpack(yajl_val curNode, msgpack_packer * sbuf);
+	void to_msgpack(yajl_val curNode, msgpack_packer * packer, SchemaPacker * schema_packer, const char * key = 0, size_t key_length = 0);
 };
 
 
