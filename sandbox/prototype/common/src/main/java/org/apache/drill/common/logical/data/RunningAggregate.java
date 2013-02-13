@@ -24,26 +24,22 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
 @JsonTypeName("runningaggregate")
-public class RunningAggregate extends SingleInputOperator{
-  
-  private final FieldReference within;
-  private final NamedExpression[]  aggregations;
+public class RunningAggregate extends SingleInputOperator {
+    private final NamedExpression[] aggregations;
+    private final FieldReference within;
 
-  @JsonCreator
-  public RunningAggregate(@JsonProperty("within") FieldReference within, @JsonProperty("aggregations") NamedExpression[] aggregations) {
-    super();
-    this.within = within;
-    this.aggregations = aggregations;
-  }
+    @JsonCreator
+    public RunningAggregate(@JsonProperty("aggregations") NamedExpression[] aggregations,
+                            @JsonProperty("within") FieldReference within) {
+        this.aggregations = aggregations;
+        this.within = within;
+    }
 
-  public FieldReference getWithin() {
-    return within;
-  }
+    public NamedExpression[] getAggregations() {
+        return aggregations;
+    }
 
-  public NamedExpression[] getAggregations() {
-    return aggregations;
-  }
-
-
-
+    public FieldReference getWithin() {
+        return within;
+    }
 }
