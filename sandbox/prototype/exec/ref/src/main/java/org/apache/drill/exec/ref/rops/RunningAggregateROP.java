@@ -18,8 +18,6 @@
 
 package org.apache.drill.exec.ref.rops;
 
-import com.google.common.base.Function;
-import com.google.common.collect.Lists;
 import org.apache.drill.common.expression.FieldReference;
 import org.apache.drill.common.logical.data.NamedExpression;
 import org.apache.drill.common.logical.data.RunningAggregate;
@@ -30,13 +28,11 @@ import org.apache.drill.exec.ref.eval.EvaluatorTypes;
 import org.apache.drill.exec.ref.exceptions.SetupException;
 import org.apache.drill.exec.ref.values.DataValue;
 
-import java.util.List;
-
 public class RunningAggregateROP extends SingleInputROPBase<RunningAggregate> {
     private RecordIterator incoming;
     private ProxySimpleRecord record;
-    private DataValue lastFoundBoundry;
-    private EvaluatorTypes.BasicEvaluator boundryEval;
+    private DataValue lastFoundBoundary;
+    private EvaluatorTypes.BasicEvaluator boundaryEval;
     private EvaluatorTypes.AggregatingEvaluator[] evals;
     private FieldReference[] outputRefs;
 
@@ -49,7 +45,7 @@ public class RunningAggregateROP extends SingleInputROPBase<RunningAggregate> {
     protected void setupEvals(final EvaluatorFactory builder) throws SetupException {
         super.setupEvals(builder);
         if (config.getWithin() != null) {
-            boundryEval = builder.getBasicEvaluator(incoming.getRecordPointer(), config.getWithin());
+            boundaryEval = builder.getBasicEvaluator(incoming.getRecordPointer(), config.getWithin());
         }
 
         NamedExpression[] aggregations = config.getAggregations();
@@ -87,15 +83,15 @@ public class RunningAggregateROP extends SingleInputROPBase<RunningAggregate> {
                 return outcome;
             }
 
-            if (boundryEval != null) {
-                DataValue boundryValue = boundryEval.eval();
-                boolean lastIsNull = lastFoundBoundry == null;
-                boolean curIsNull = boundryValue == null;
-                if (lastIsNull != curIsNull || (!curIsNull && !boundryValue.equals(lastFoundBoundry))) {
-                    for (EvaluatorTypes.AggregatingEvaluator eval : evals) {
-                        eval.eval();
+            if (boundaryEval != null) {
+                DataValue boundaryValue = boundaryEval.eval();
+                boolean lastIsNull = lastFoundBoundary == null;
+                boolean curIsNull = boundaryValue == null;
+                if (lastIsNull != curIsNull || (!curIsNull && !boundaryValue.equals(lastFoundBoundary))) {
+                    for (EvaluatorTypes.AggregatingEvaluator evaluator : evals) {
+                        evaluator.eval();
                     }
-                    lastFoundBoundry = boundryValue;
+                    lastFoundBoundary = boundaryValue;
                 }
             }
 
