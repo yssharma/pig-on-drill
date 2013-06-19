@@ -1,0 +1,35 @@
+{
+  types: [
+    {
+      major: "FIXED1",
+      width: 1,
+      javaType: "byte",
+      minor: [
+        { type: "TINYINT" },
+        { type: "UNIT1" }
+      ]
+    },
+    {
+      major: "FIXED2",
+      width: 2,
+      javaType: "short",
+      minor: [
+        { type: "SMALLINT" },
+        { type: "UNIT2" }
+      ]
+    },
+    {
+      major: "FIXED4",
+      width: 4,
+      javaType: "int",
+      minor: [
+        { type: "INT" },
+        { type: "UNIT4" },
+        { type: "DECIMAL4", maxPrecisionDigits: 8, scale: 1, javaType: "float"},
+        { type: "FLOAT4", javaType: "float" },
+        { type: "MONEY", maxPrecisionDigits: 2, scale: 1, javaType: "float" },
+        { type: "DATE" }
+      ]
+    }
+  ]
+}
