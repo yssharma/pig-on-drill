@@ -1,55 +1,41 @@
 // TODO: add read-only class
 
-public class ValueVectorTypes {
-<#list types as type>
-<#list type.minor as minor>
-  public class ${minor.type} extends Closable {
-    static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.type}.class);
+import io.netty.buffer.ByteBuf;
+import java.io.Closeable;
+import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.proto.SchemaDefProtos;
+import org.apache.drill.exec.proto.UserBitShared.FieldMetadata;
+import org.apache.drill.exec.record.DeadBuf;
+import org.apache.drill.exec.record.MaterializedField;
 
-    protected final int widthInBits = ${type.width};
-    protected int longWords = 0;
+
+public class ValueVectorTypes {
+
+  public static class ValueVectorBase implements Closeable {
+    static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ValueVectorBase.class);
+
     protected final BufferAllocator allocator;
     protected ByteBuf data = DeadBuf.DEAD_BUFFER;
     protected int maxValueCount = 0;
     protected final MaterializedField field;
     private int recordCount;
 
-    public ${minor.type}(MaterializedField field, BufferAllocator allocator) {
+    public ValueVectorBase(MaterializedField field, BufferAllocator allocator) {
       this.allocator = allocator;
       this.field = field;
     }
 
-    public final void allocateNew(int valueCount){
-      int allocationSize = getAllocationSize(valueCount);
-      ByteBuf newBuf = allocator.buffer(allocationSize);
-      resetAllocation(valueCount, newBuf);
-    }
-
-    public final void set(int index, ${type.javaType} value){
-      index *= widthInBits;
-      data.set${type.javaType?cap_first}(index, value);
-    }
-    
-    public final ${type.javaType} get(int index){
-      index *= widthInBits;
-      return data.getInt(index);
-    }
-
-    public int getWidthInBits() {
-        return widthInBits;
-    }
-
-    public void setRecordCount(int recordCount) {
-      this.data.writerIndex(recordCount*(widthInBits/8));
-      super.setRecordCount(recordCount);
-    }
+    protected int getAllocationSize(int maxValueCount) { return maxValueCount; }
+    // BB TODO: can derived classes inline these?
+    protected void childResetAllocation(int valueCount, ByteBuf buf) { }
+    protected void childClear() { }
 
     /**
      * Update the current buffer allocation utilize the provided allocation.
      * @param maxValueCount
      * @param buf
      */
-    protected final void resetAllocation(int maxValueCount, ByteBuf buf){
+    protected final void resetAllocation(int maxValueCount, ByteBuf buf) {
       clear();
       buf.retain();
       this.maxValueCount = maxValueCount;
@@ -57,23 +43,7 @@ public class ValueVectorTypes {
       childResetAllocation(maxValueCount, buf);
     }
 
-    protected int getAllocationSize(int valueCount) {
-      return (int) Math.ceil(valueCount*widthInBits*1.0/8);
-    }
-    
-    protected void childResetAllocation(int valueCount, ByteBuf buf) {
-      this.longWords = valueCount/8;
-    }
-
-    protected void childCloneMetadata(T other) {
-      other.longWords = this.longWords;
-    }
-
-    protected void childClear() {
-      longWords = 0;
-    }
-
-    protected final void clear(){
+    protected final void clear() {
       if(this.data != DeadBuf.DEAD_BUFFER){
         this.data.release();
         this.data = DeadBuf.DEAD_BUFFER;
@@ -81,32 +51,6 @@ public class ValueVectorTypes {
       }
       childClear();
     }
-
-    public final void cloneMetadata(T other){
-      other.maxValueCount = this.maxValueCount;
-    }
-
-    /**
-     * Copies the data from this vector into its pair.
-     * 
-     * @param vector
-     */
-    public final void cloneInto(T vector) {
-      vector.allocateNew(maxValueCount);
-      data.writeBytes(vector.data);
-      cloneMetadata(vector);
-      childResetAllocation(maxValueCount, vector.data);
-    }
-
-    // ValueVector Interface:
-
-    /**
-     * Allocate a new memory space for this vector.
-     * 
-     * @param valueCount
-     *          The number of possible values which should be contained in this vector.
-     */
-    public abstract void allocateNew(int valueCount);
 
     /**
      * Update the value vector to the provided record information.
@@ -124,11 +68,41 @@ public class ValueVectorTypes {
      * 
      * @param vector
      */
-    public final void transferTo(T vector) {
+    public void transferTo(ValueVectorBase vector) {
       vector.data = this.data;
       cloneMetadata(vector);
       childResetAllocation(maxValueCount, data);
       clear();
+    }
+
+    // TODO: add derived implementations
+    public void cloneMetadata(ValueVectorBase other) {
+      other.maxValueCount = this.maxValueCount;
+    }
+
+    // TODO: add derived implementations
+    /**
+     * Copies the data from this vector into its pair.
+     * 
+     * @param vector
+     */
+    public final void cloneInto(ValueVectorBase vector) {
+      vector.allocateNew(maxValueCount);
+      data.writeBytes(vector.data);
+      cloneMetadata(vector);
+      childResetAllocation(maxValueCount, vector.data);
+    }
+
+    /**
+     * Allocate a new memory space for this vector.
+     * 
+     * @param valueCount
+     *          The number of possible values which should be contained in this vector.
+     */
+    public void allocateNew(int valueCount) {
+      int allocationSize = getAllocationSize(valueCount);
+      ByteBuf newBuf = allocator.buffer(allocationSize);
+      resetAllocation(valueCount, newBuf);
     }
 
     /**
@@ -190,8 +164,66 @@ public class ValueVectorTypes {
       }
       return FieldMetadata.newBuilder().setDef(getField().getDef()).setValueCount(getRecordCount()).setBufferLength(len).build();
     }
+
   }
 
+<#list types as type>
+<#list type.minor as minor>
+  public static class ${minor.type} extends ValueVectorBase {
+    static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.type}.class);
+
+    // Fixed only
+    protected final int widthInBits = ${type.width};
+    protected int longWords = 0;
+
+    public ${minor.type}(MaterializedField field, BufferAllocator allocator) {
+      super(field, allocator);
+    }
+
+    public final void set(int index, ${type.javaType} value) {
+      index *= widthInBits;
+      data.set${type.javaType?cap_first}(index, value);
+    }
+    
+    public final ${type.javaType} get(int index) {
+      index *= widthInBits;
+      return data.get${type.javaType?cap_first}(index);
+    }
+
+    public final int getWidthInBits() {
+        return widthInBits;
+    }
+
+    public final void setRecordCount(int recordCount) {
+      this.data.writerIndex(recordCount*(widthInBits/8));
+      super.setRecordCount(recordCount);
+    }
+
+    protected final int getAllocationSize(int valueCount) {
+      return (int) Math.ceil(valueCount*widthInBits*1.0/8);
+    }
+    
+    protected final void childResetAllocation(int valueCount, ByteBuf buf) {
+      this.longWords = valueCount/8;
+    }
+
+    protected final void childCloneMetadata(${minor.type} other) {
+      other.longWords = this.longWords;
+    }
+
+    protected final void childClear() {
+      longWords = 0;
+    }
+
+  }
+
+  // public class ${minor.type} extends Closable {
+
+  //   // Variable only
+  //   protected final FIXED${type.width} lengthVector;
+  //   protected int expectedValueLength;
+
+  // }
 
 </#list>
 </#list>
