@@ -17,6 +17,12 @@
  ******************************************************************************/
 
 // TODO: add read-only class
+//       make bit vector a stand-alone class
+//       add map
+//       add repeated map
+//       add nullable
+//       add repeatable
+//       catch netty ByteBuf exceptions
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -114,7 +120,7 @@ public class ValueVectorTypes {
      * 
      * @param vector
      */
-    public final void cloneInto(ValueVectorBase vector) {
+    public void cloneInto(ValueVectorBase vector) {
       vector.allocateNew(maxValueCount);
       data.writeBytes(vector.data);
       cloneMetadata(vector);
@@ -221,43 +227,60 @@ public class ValueVectorTypes {
      * Set the element at the given index to the given value.  Note that widths smaller than
      * 32-bits are handled by the ByteBuf interface.
      */
-    public final void set(int index, <#if (type.width > 4)>${type.javaType?cap_first}<#else>int</#if> value) {
+    public void set(int index, <#if (type.width > 4)>${type.javaType?cap_first}<#else>int</#if> value) {
       index *= widthInBits;
+<#if (type.width > 8)>
+      data.setBytes(index, value);
+<#else>
       data.set${type.javaType?cap_first}(index, value);
+</#if>
     }
     
-    public final ${type.javaType} get(int index) {
+    public ${type.javaType} get(int index) {
       index *= widthInBits;
+<#if (type.width > 8)>
+      ByteBuf dst = allocator.buffer(${type.width});
+      data.getBytes(index, dst, 0, ${type.width});
+      return dst;
+<#else>
       return data.get${type.javaType?cap_first}(index);
+</#if>
     }
 
     public final int getWidthInBits() {
         return widthInBits;
     }
 
-    public final void setRecordCount(int recordCount) {
+    public void setRecordCount(int recordCount) {
+      //TODO/FIXME: truncation issue?
       this.data.writerIndex(recordCount*(widthInBits/8));
       super.setRecordCount(recordCount);
     }
 
-    protected final int getAllocationSize(int valueCount) {
+    protected int getAllocationSize(int valueCount) {
       return (int) Math.ceil(valueCount*widthInBits*1.0/8);
     }
     
-    protected final void childResetAllocation(int valueCount, ByteBuf buf) {
+    protected void childResetAllocation(int valueCount, ByteBuf buf) {
       this.longWords = valueCount/8;
     }
 
-    protected final void childCloneMetadata(${minor.class} other) {
+    protected void childCloneMetadata(${minor.class} other) {
       other.longWords = this.longWords;
     }
 
-    protected final void childClear() {
+    protected void childClear() {
       longWords = 0;
     }
 
     public Object getObject(int index) {
+<#if (type.width > 8)>
+      ByteBuf dst = allocator.buffer(${type.width});
+      data.getBytes(index, dst, 0, ${type.width});
+      return dst;
+<#else>
       return data.get${type.javaType?cap_first}(index);
+</#if>
     }
   }
 
@@ -288,7 +311,15 @@ public class ValueVectorTypes {
       return new UInt${type.width}(null, allocator);
     }
 
-    public void setBytes(int index, byte[] bytes) {
+    public ByteBuf get(int index) {
+      int offset = lengthVector.get(index);
+      int length = lengthVector.get(index+1) - offset;
+      ByteBuf dst = allocator.buffer(length);
+      data.getBytes(index, dst, 0, length);
+      return dst;
+    }
+
+    public void set(int index, byte[] bytes) {
       checkArgument(index >= 0);
       // assert index < Math.exp(2, {$type.width} * 8);
       if (index == 0) {
@@ -357,8 +388,109 @@ public class ValueVectorTypes {
 
   }
 
-
 </#if>
+
+  /**
+   * Nullable${minor.class} implements a vector of values which could be null.  Elements in the vector
+   * are first checked against a fixed length vector of boolean values.  Then the element is retrieved
+   * from the base class (if not null).
+   *
+   * NB: this class is automatically generated from ValueVectorTypes.tdd using FreeMarker.
+   */
+  public class Nullable${minor.class} extends ${minor.class} {
+
+    protected Bit bits;
+
+<#if type.major == "Fixed">
+    public Nullable${minor.class}(MaterializedField field, BufferAllocator allocator) {
+      super(field, allocator);
+      bits = new Bit(null, allocator);
+    }
+<#else>
+    public Nullable${minor.class}(MaterializedField field, BufferAllocator allocator, int expectedValueLength) {
+      super(field, allocator, expectedValueLength);
+      bits = new Bit(null, allocator);
+    }
+</#if>
+
+    /**
+     * Set the element at the given index to the given value.  Note that widths smaller than
+     * 32-bits are handled by the ByteBuf interface.
+     */
+    public void set(int index, <#if (type.width > 4)>${type.javaType?cap_first}<#elseif type.major == "VarLen">byte[]<#else>int</#if> value) {
+      setNotNull(index);
+      super.set(index, value);
+    }
+    
+<#if type.major == "Fixed">
+    public ${type.javaType} get(int index) {
+<#else>
+    public ByteBuf get(int index) {
+</#if>
+      return isNull(index) ? null : super.get(index);
+    }
+
+    public void setNull(int index) {
+        bits.set(index, 1);
+    }
+
+    public void setNotNull(int index) {
+        bits.set(index, 0);
+    }
+
+    public boolean isNull(int index) {
+      return bits.get(index) == 0;
+    }
+
+    @Override
+    protected int getAllocationSize(int valueCount) {
+      return bits.getAllocationSize(valueCount) + super.getAllocationSize(valueCount);
+    }
+    
+    @Override
+    public MaterializedField getField() {
+      return field;
+    }
+
+    @Override
+    protected void childResetAllocation(int valueCount, ByteBuf buf) {
+      int firstSize = bits.getAllocationSize(valueCount);
+      super.resetAllocation(valueCount, buf.slice(firstSize, super.getAllocationSize(valueCount)));
+      bits.resetAllocation(valueCount, buf.slice(0, firstSize));
+      // bits.setAllFalse();
+    }
+
+    protected void childCloneMetadata(Nullable${minor.class} other) {
+      bits.cloneMetadata(other.bits);
+      super.cloneInto(other);
+    }
+
+    @Override
+    protected void childClear() {
+      bits.clear();
+      super.clear();
+    }
+    
+    @Override
+    public ByteBuf[] getBuffers() {
+      return new ByteBuf[]{bits.data, super.data};
+    }
+
+    @Override
+    public void setRecordCount(int recordCount) {
+      super.setRecordCount(recordCount);
+      bits.setRecordCount(recordCount);
+      super.setRecordCount(recordCount);
+    }
+
+    @Override
+    public Object getObject(int index) {
+      return isNull(index) ? null : super.getObject(index);
+    }
+
+
+  }
+
 </#list>
 </#list>
 }
