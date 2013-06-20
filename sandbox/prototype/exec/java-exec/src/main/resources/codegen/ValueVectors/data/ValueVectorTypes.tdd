@@ -1,34 +1,61 @@
 {
   types: [
     {
-      major: "FIXED1",
+      major: "Fixed",
       width: 1,
       javaType: "byte",
       minor: [
-        { type: "TINYINT" },
-        { type: "UNIT1" }
+        { class: "TinyInt" },
+        { class: "UInt1" }
       ]
     },
     {
-      major: "FIXED2",
+      major: "Fixed",
       width: 2,
       javaType: "short",
       minor: [
-        { type: "SMALLINT" },
-        { type: "UNIT2" }
+        { class: "SmallInt" },
+        { class: "UInt2" }
       ]
     },
     {
-      major: "FIXED4",
+      major: "Fixed",
       width: 4,
       javaType: "int",
       minor: [
-        { type: "INT" },
-        { type: "UNIT4" },
-        { type: "DECIMAL4", maxPrecisionDigits: 8, scale: 1, javaType: "float"},
-        { type: "FLOAT4", javaType: "float" },
-        { type: "MONEY", maxPrecisionDigits: 2, scale: 1, javaType: "float" },
-        { type: "DATE" }
+        { class: "Int" },
+        { class: "UInt4" },
+        { class: "Decimal4", maxPrecisionDigits: 8, scale: 1, javaType: "float"},
+        { class: "Float4", javaType: "float" },
+        { class: "Money", maxPrecisionDigits: 2, scale: 1, javaType: "float" },
+        { class: "Date" }
+      ]
+    },
+    {
+      major: "VarLen",
+      width: 1,
+      javaType: "byte",
+      minor: [
+        { class: "VarBinary1" },
+        { class: "VarChar1" }
+      ]
+    },
+    {
+      major: "VarLen",
+      width: 2,
+      javaType: "short",
+      minor: [
+        { class: "VarBinary2" },
+        { class: "VarChar2" }
+      ]
+    },
+    {
+      major: "VarLen",
+      width: 4,
+      javaType: "int",
+      minor: [
+        { class: "VarBinary4" },
+        { class: "VarChar4" }
       ]
     }
   ]

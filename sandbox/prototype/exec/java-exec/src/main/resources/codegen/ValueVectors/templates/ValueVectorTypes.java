@@ -1,5 +1,25 @@
+/*******************************************************************************
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
 // TODO: add read-only class
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import io.netty.buffer.ByteBuf;
 import java.io.Closeable;
 import org.apache.drill.exec.memory.BufferAllocator;
@@ -8,9 +28,17 @@ import org.apache.drill.exec.proto.UserBitShared.FieldMetadata;
 import org.apache.drill.exec.record.DeadBuf;
 import org.apache.drill.exec.record.MaterializedField;
 
-
+/**
+ * ValueVectorTypes defines a set of template-generated classes which implement type-specific
+ * value vectors.  The template approach was chosen due to the lack of multiple inheritence.  It
+ * is also important that all related logic be as efficient as possible.
+ */
 public class ValueVectorTypes {
 
+  /**
+   * ValueVectorBase implements common logic for all value vectors.  Note that only the derived
+   * classes should be used to avoid virtual function call lookups which cannot be optimized out.
+   */
   public static class ValueVectorBase implements Closeable {
     static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ValueVectorBase.class);
 
@@ -169,18 +197,31 @@ public class ValueVectorTypes {
 
 <#list types as type>
 <#list type.minor as minor>
-  public static class ${minor.type} extends ValueVectorBase {
-    static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.type}.class);
+<#if type.major == "Fixed">
 
-    // Fixed only
+  /**
+   * ${minor.class} implements a vector of fixed width values.  Elements in the vector
+   * are accessed by offset from the logical start of the (0-based) ByteBuf.
+   *   The width of each element is ${type.width} byte(s)
+   *   The equivilent Java primitive is '${minor.javaType!type.javaType}'
+   *
+   * NB: this class is automatically generated from ValueVectorTypes.tdd using FreeMarker.
+   */
+  public static class ${minor.class} extends ValueVectorBase {
+    static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}.class);
+
     protected final int widthInBits = ${type.width};
     protected int longWords = 0;
 
-    public ${minor.type}(MaterializedField field, BufferAllocator allocator) {
+    public ${minor.class}(MaterializedField field, BufferAllocator allocator) {
       super(field, allocator);
     }
 
-    public final void set(int index, ${type.javaType} value) {
+    /**
+     * Set the element at the given index to the given value.  Note that widths smaller than
+     * 32-bits are handled by the ByteBuf interface.
+     */
+    public final void set(int index, <#if (type.width > 4)>${type.javaType?cap_first}<#else>int</#if> value) {
       index *= widthInBits;
       data.set${type.javaType?cap_first}(index, value);
     }
@@ -207,7 +248,7 @@ public class ValueVectorTypes {
       this.longWords = valueCount/8;
     }
 
-    protected final void childCloneMetadata(${minor.type} other) {
+    protected final void childCloneMetadata(${minor.class} other) {
       other.longWords = this.longWords;
     }
 
@@ -215,16 +256,109 @@ public class ValueVectorTypes {
       longWords = 0;
     }
 
+    public Object getObject(int index) {
+      return data.get${type.javaType?cap_first}(index);
+    }
   }
 
-  // public class ${minor.type} extends Closable {
+<#elseif type.major == "VarLen">
 
-  //   // Variable only
-  //   protected final FIXED${type.width} lengthVector;
-  //   protected int expectedValueLength;
+  /**
+   * ${minor.class} implements a vector of variable width values.  Elements in the vector
+   * are accessed by position from the logical start of the vector.  A fixed width lengthVector
+   * is used to convert an element's position to it's offset from the start of the (0-based) ByteBuf.
+   *   The width of each element is ${type.width} byte(s)
+   *   The equivilent Java primitive is '${minor.javaType!type.javaType}'
+   *
+   * NB: this class is automatically generated from ValueVectorTypes.tdd using FreeMarker.
+   */
+  public static class ${minor.class} extends ValueVectorBase {
+    static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}.class);
 
-  // }
+    protected final UInt${type.width} lengthVector;
+    protected int expectedValueLength;
 
+    public ${minor.class}(MaterializedField field, BufferAllocator allocator, int expectedValueLength) {
+      super(field, allocator);
+      this.lengthVector = getNewLengthVector(allocator);
+      this.expectedValueLength = expectedValueLength;
+    }
+
+    protected UInt${type.width} getNewLengthVector(BufferAllocator allocator) {
+      return new UInt${type.width}(null, allocator);
+    }
+
+    public void setBytes(int index, byte[] bytes) {
+      checkArgument(index >= 0);
+      // assert index < Math.exp(2, {$type.width} * 8);
+      if (index == 0) {
+        lengthVector.set(0, bytes.length);
+        data.setBytes(0, bytes);
+      } else {
+        int previousOffset = lengthVector.get(index - 1);
+        lengthVector.set(index, previousOffset + bytes.length);
+        data.setBytes(previousOffset, bytes);
+      }
+    }
+
+    @Override
+    protected int getAllocationSize(int valueCount) {
+      return lengthVector.getAllocationSize(valueCount) + expectedValueLength * valueCount;
+    }
+    
+    @Override
+    protected void childResetAllocation(int valueCount, ByteBuf buf) {
+      int firstSize = lengthVector.getAllocationSize(valueCount);
+      lengthVector.resetAllocation(valueCount, buf.slice(0, firstSize));
+      data = buf.slice(firstSize, expectedValueLength * valueCount);
+    }
+
+    protected void childCloneMetadata(${minor.class} other) {
+      lengthVector.cloneMetadata(other.lengthVector);
+      other.expectedValueLength = expectedValueLength;
+    }
+
+    @Override
+    protected void childClear() {
+      lengthVector.clear();
+      if (data != DeadBuf.DEAD_BUFFER) {
+        data.release();
+        data = DeadBuf.DEAD_BUFFER;
+      }
+    }
+
+    @Override
+    public ByteBuf[] getBuffers() {
+      return new ByteBuf[]{lengthVector.data, data};
+    }
+
+    @Override
+    public void setRecordCount(int recordCount) {
+      super.setRecordCount(recordCount);
+      lengthVector.setRecordCount(recordCount);
+    }  
+    
+    public void setTotalBytes(int totalBytes){
+      data.writerIndex(totalBytes);
+    }
+
+    public Object getObject(int index) {
+        checkArgument(index >= 0);
+        int startIdx = 0;
+        if (index > 0) {
+            startIdx = (int) lengthVector.getObject(index - 1);
+        }
+        int size = (int) lengthVector.getObject(index) - startIdx;
+        checkState(size >= 0);
+        byte[] dst = new byte[size];
+        data.getBytes(startIdx, dst, 0, size);
+        return dst;
+    }
+
+  }
+
+
+</#if>
 </#list>
 </#list>
 }
