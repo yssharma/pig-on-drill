@@ -246,15 +246,19 @@ public class ValueVectorTypes {
 
   }
 
+  // public class Bit extendes FixedBase {
+
+  // }
+
 <#list types as type>
   <#list type.minor as minor>
     <#if type.major == "Fixed">
       <#if (type.width > 8)>
 
-  public static class ${minor.class} extends FixedBase{
+  public static class ${minor.class} extends FixedBase {
     static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}.class);
 
-    public ${minor.class}(MaterializedField field, BufferAllocator allocator){
+    public ${minor.class}(MaterializedField field, BufferAllocator allocator) {
       super(field, allocator, ${type.width});
     }
 
@@ -288,7 +292,7 @@ public class ValueVectorTypes {
 
       <#else> <#-- type.width -->
 
-  public static class ${minor.class} extends FixedBase{
+  public static class ${minor.class} extends FixedBase {
     static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}.class);
 
     public ${minor.class}(MaterializedField field, BufferAllocator allocator) {
@@ -299,7 +303,7 @@ public class ValueVectorTypes {
      * Set the element at the given index to the given value.  Note that widths smaller than
      * 32-bits are handled by the ByteBuf interface.
      */
-    public void set(int index,  <#if (type.width > 4)>${type.javaType?cap_first}<#elseif type.major == "VarLen">byte[]<#else>int</#if> value) {
+    public void set(int index, <#if (type.width > 4)>${type.javaType}<#elseif type.major == "VarLen">byte[]<#else>int</#if> value) {
       index *= widthInBits;
       data.set${type.javaType?cap_first}(index, value);
     }
@@ -458,7 +462,7 @@ public class ValueVectorTypes {
       super.set(index, value);
     }
 
-    public <#if type.major == "Fixed">${type.javaType}<#else>ByteBuf<#/if> get(int index) {
+    public <#if type.major == "Fixed">${type.javaType}<#else>ByteBuf</#if> get(int index) {
       return isNull(index) ? null : super.get(index);
     }
 
