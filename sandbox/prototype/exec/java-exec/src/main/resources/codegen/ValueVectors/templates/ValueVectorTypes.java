@@ -16,12 +16,11 @@
  * limitations under the License.
  ******************************************************************************/
 
-// TODO: add read-only class
-//       make bit vector a stand-alone class
-//       add map
+// TODO:
+//       add read-only class
 //       add repeated map
-//       add nullable
-//       add repeatable
+//       add repeatable  
+//       add tests       
 //       catch netty ByteBuf exceptions
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -480,9 +479,9 @@ public class ValueVectorTypes {
     @Override
     protected void childResetAllocation(int valueCount, ByteBuf buf) {
       int firstSize = bits.getAllocationSize(valueCount);
-      super.resetAllocation(valueCount, buf.slice(firstSize, super.getAllocationSize(valueCount)));
       bits.resetAllocation(valueCount, buf.slice(0, firstSize));
           // bits.setAllFalse();
+      super.resetAllocation(valueCount, buf.slice(firstSize, getAllocationSize(valueCount)));
     }
 
     @Override
