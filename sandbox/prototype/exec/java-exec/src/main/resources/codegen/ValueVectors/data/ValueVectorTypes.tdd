@@ -5,7 +5,6 @@
       width: 1,
       javaType: "byte",
       minor: [
-        { class: "Bit" },
         { class: "TinyInt" },
         { class: "UInt1" }
       ]

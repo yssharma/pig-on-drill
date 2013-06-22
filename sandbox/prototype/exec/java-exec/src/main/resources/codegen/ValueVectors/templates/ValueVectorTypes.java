@@ -205,98 +205,49 @@ public class ValueVectorTypes {
 
   }
 
-  /**
-   * FixedBase implements a vector of fixed width values.  Elements in the vector
-   * are accessed by offset from the logical start of the (0-based) ByteBuf.
-   *
-   * NB: this class is automatically generated from ValueVectorTypes.tdd using FreeMarker.
-   */
-  public static class FixedBase extends ValueVectorBase {
-    static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FixedBase.class);
+  public static class Bit extends ValueVectorBase {
+    static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Bit.class);
 
-    protected final int widthInBits;  // TODO: remove from fixed width classes
-    protected int longWords = 0;
-
-    public FixedBase(MaterializedField field, BufferAllocator allocator, int widthInBits) {
+    public Bit(MaterializedField field, BufferAllocator allocator) {
       super(field, allocator);
-      this.widthInBits = widthInBits;
     }
 
-    public final int getWidthInBits() {
-      return widthInBits;
+    /**
+     * Set the element at the given index to the given value (1 == true, 0 == false).
+     */
+    public void set(int index, boolean value) {
+      byte currentValue = data.getByte((int)Math.floor(index/8));
+      if (value)
+        currentValue |= (byte) Math.pow(2, (index % 8));
+      else
+        currentValue ^= (byte) Math.pow(2, (index % 8));
+      data.setByte((int) Math.floor(index/8), currentValue);
     }
 
-    public void setRecordCount(int recordCount) {
-      //TODO/FIXME: truncation issue?
-      this.data.writerIndex(recordCount*(widthInBits/8));
-      super.setRecordCount(recordCount);
+    public boolean get(int index) {
+      return (data.getByte((int) Math.floor(index/8)) & (int) Math.pow(2, (index % 8))) == 1;
+    }
+
+    public Object getObject(int index) {
+      return new Boolean(get(index));
     }
 
     protected int getAllocationSize(int valueCount) {
-      return (int) Math.ceil(valueCount*widthInBits*1.0/8);
-    }
-
-    protected void childResetAllocation(int valueCount, ByteBuf buf) {
-      this.longWords = valueCount/8;
-    }
-
-    protected void childClear() {
-      longWords = 0;
+      return (int) Math.ceil(valueCount / 8);
     }
 
   }
-
-  // public class Bit extendes FixedBase {
-
-  // }
 
 <#list types as type>
   <#list type.minor as minor>
     <#if type.major == "Fixed">
       <#if (type.width > 8)>
 
-  public static class ${minor.class} extends FixedBase {
+  public static class ${minor.class} extends ValueVectorBase {
     static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}.class);
 
     public ${minor.class}(MaterializedField field, BufferAllocator allocator) {
-      super(field, allocator, ${type.width});
-    }
-
-    /**
-     * Set the element at the given index to the given value.  Note that widths smaller than
-     * 32-bits are handled by the ByteBuf interface.
-     */
-    public void set(int index,  <#if (type.width > 4)>${type.javaType}<#elseif type.major == "VarLen">byte[]<#else>int</#if> value) {
-      index *= widthInBits;
-      data.setBytes(index, value);
-    }
-
-    public ${type.javaType} get(int index) {
-      index *= widthInBits;
-      ByteBuf dst = allocator.buffer(${type.width});
-      data.getBytes(index, dst, 0, ${type.width});
-      return dst;
-    }
-
-    public Object getObject(int index) {
-      ByteBuf dst = allocator.buffer(${type.width});
-      data.getBytes(index, dst, 0, ${type.width});
-      return dst;
-    }
-
-    protected void childCloneMetadata(${minor.class} other) {
-      other.longWords = this.longWords;
-    }
-
-  }
-
-      <#else> <#-- type.width -->
-
-  public static class ${minor.class} extends FixedBase {
-    static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}.class);
-
-    public ${minor.class}(MaterializedField field, BufferAllocator allocator) {
-      super(field, allocator, ${type.width});
+      super(field, allocator);
     }
 
     /**
@@ -304,21 +255,54 @@ public class ValueVectorTypes {
      * 32-bits are handled by the ByteBuf interface.
      */
     public void set(int index, <#if (type.width > 4)>${type.javaType}<#elseif type.major == "VarLen">byte[]<#else>int</#if> value) {
-      index *= widthInBits;
-      data.set${type.javaType?cap_first}(index, value);
+      data.setBytes(index * ${type.width}, value);
     }
 
     public ${type.javaType} get(int index) {
-      index *= widthInBits;
-      return data.get${type.javaType?cap_first}(index);
+      ByteBuf dst = allocator.buffer(${type.width});
+      data.getBytes(index * ${type.width}, dst, 0, ${type.width});
+      return dst;
+    }
+
+    public Object getObject(int index) {
+      ByteBuf dst = allocator.buffer(${type.width});
+      data.getBytes(index, dst, 0, ${type.width});
+      return dst;
+    }
+
+    protected int getAllocationSize(int valueCount) {
+      return (int) Math.ceil(valueCount * ${type.width});
+    }
+
+  }
+
+      <#else> <#-- type.width -->
+
+  public static class ${minor.class} extends ValueVectorBase {
+    static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}.class);
+
+    public ${minor.class}(MaterializedField field, BufferAllocator allocator) {
+      super(field, allocator);
+    }
+
+    /**
+     * Set the element at the given index to the given value.  Note that widths smaller than
+     * 32-bits are handled by the ByteBuf interface.
+     */
+    public void set(int index, <#if (type.width > 4)>${type.javaType}<#elseif type.major == "VarLen">byte[]<#else>int</#if> value) {
+      data.set${type.javaType?cap_first}(index * ${type.width}, value);
+    }
+
+    public ${type.javaType} get(int index) {
+      return data.get${type.javaType?cap_first}(index * ${type.width});
     }
 
     public Object getObject(int index) {
       return data.get${type.javaType?cap_first}(index);
     }
 
-    protected void childCloneMetadata(${minor.class} other) {
-      other.longWords = this.longWords;
+    protected int getAllocationSize(int valueCount) {
+      return (int) Math.ceil(valueCount * ${type.width});
     }
 
   }
@@ -472,15 +456,15 @@ public class ValueVectorTypes {
     }
 
     public void setNull(int index) {
-      bits.set(index, 1);
+      bits.set(index, false);
     }
 
     public void setNotNull(int index) {
-      bits.set(index, 0);
+      bits.set(index, true);
     }
 
     public boolean isNull(int index) {
-      return bits.get(index) == 0;
+      return !bits.get(index);
     }
 
     @Override
