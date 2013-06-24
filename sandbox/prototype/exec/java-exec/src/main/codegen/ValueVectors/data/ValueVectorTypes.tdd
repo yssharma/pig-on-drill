@@ -50,7 +50,7 @@
       width: 12,
       javaType: "ByteBuf",
       minor: [
-        { class: "Decimal12", maxPrecisionDigits: 28, scale: 1, javaType: "double"},
+        { class: "Decimal12", maxPrecisionDigits: 28, scale: 1},
         { class: "TimeTZ" },
         { class: "Interval" }
       ]
@@ -60,7 +60,7 @@
       width: 16,
       javaType: "ByteBuf",
       minor: [
-        { class: "Decimal16", maxPrecisionDigits: 37, scale: 1, javaType: "double"}
+        { class: "Decimal16", maxPrecisionDigits: 37, scale: 1}
       ]
     },
     {
@@ -92,6 +92,14 @@
         { class: "VarChar4" }
         { class: "Proto4" },
         { class: "MsgPack4" }
+      ]
+    },
+    {
+      major: "Bit",
+      width: 1,
+      javaType: "boolean",
+      minor: [
+        { class: "Bit" }
       ]
     }
   ]

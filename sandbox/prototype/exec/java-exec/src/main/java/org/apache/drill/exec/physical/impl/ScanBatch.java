@@ -45,7 +45,7 @@ import com.google.common.collect.Lists;
 public class ScanBatch implements RecordBatch {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ScanBatch.class);
 
-  private IntObjectOpenHashMap<ValueVector<?>> fields = new IntObjectOpenHashMap<ValueVector<?>>();
+  private IntObjectOpenHashMap<ValueVector.ValueVectorBase> fields = new IntObjectOpenHashMap<ValueVector.ValueVectorBase>();
   private BatchSchema schema;
   private int recordCount;
   private boolean schemaChanged = true;
@@ -89,9 +89,9 @@ public class ScanBatch implements RecordBatch {
   }
 
   private void releaseAssets() {
-    fields.forEach(new IntObjectProcedure<ValueVector<?>>() {
+    fields.forEach(new IntObjectProcedure<ValueVector.ValueVectorBase>() {
       @Override
-      public void apply(int key, ValueVector<?> value) {
+      public void apply(int key, ValueVector.ValueVectorBase value) {
         value.close();
       }
     });
@@ -99,9 +99,9 @@ public class ScanBatch implements RecordBatch {
 
   @SuppressWarnings("unchecked")
   @Override
-  public <T extends ValueVector<T>> T getValueVector(int fieldId, Class<T> clazz) throws InvalidValueAccessor {
+  public <T extends ValueVector.ValueVectorBase> T getValueVector(int fieldId, Class<T> clazz) throws InvalidValueAccessor {
     if (fields.containsKey(fieldId)) throw new InvalidValueAccessor(String.format("Unknown value accesor for field id %d."));
-    ValueVector<?> vector = this.fields.lget();
+    ValueVector.ValueVectorBase vector = this.fields.lget();
     if (vector.getClass().isAssignableFrom(clazz)) {
       return (T) vector;
     } else {
@@ -143,14 +143,14 @@ public class ScanBatch implements RecordBatch {
     
     public void removeField(int fieldId) throws SchemaChangeException {
       schemaChanged();
-      ValueVector<?> v = fields.remove(fieldId);
+      ValueVector.ValueVectorBase v = fields.remove(fieldId);
       if (v == null) throw new SchemaChangeException("Failure attempting to remove an unknown field.");
       v.close();
     }
 
-    public void addField(int fieldId, ValueVector<?> vector) {
+    public void addField(int fieldId, ValueVector.ValueVectorBase vector) {
       schemaChanged();
-      ValueVector<?> v = fields.put(fieldId, vector);
+      ValueVector.ValueVectorBase v = fields.put(fieldId, vector);
       vector.getField();
       builder.addField(vector.getField());
       if (v != null) v.close();

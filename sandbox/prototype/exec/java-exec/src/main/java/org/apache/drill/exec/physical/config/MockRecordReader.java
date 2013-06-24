@@ -37,7 +37,7 @@ public class MockRecordReader implements RecordReader {
   private OutputMutator output;
   private MockScanEntry config;
   private FragmentContext context;
-  private ValueVector<?>[] valueVectors;
+  private ValueVector.ValueVectorBase[] valueVectors;
   private int recordsRead;
 
   public MockRecordReader(FragmentContext context, MockScanEntry config) {
@@ -53,13 +53,13 @@ public class MockRecordReader implements RecordReader {
     return x;
   }
 
-  private ValueVector<?> getVector(int fieldId, String name, MajorType type, int length) {
+  private ValueVector.ValueVectorBase getVector(int fieldId, String name, MajorType type, int length) {
     assert context != null : "Context shouldn't be null.";
     
     if(type.getMode() != DataMode.REQUIRED) throw new UnsupportedOperationException();
     
     MaterializedField f = MaterializedField.create(new SchemaPath(name), fieldId, 0, type);
-    ValueVector<?> v;
+    ValueVector.ValueVectorBase v;
     v = TypeHelper.getNewVector(f, context.getAllocator());
     v.allocateNew(length);
     
@@ -72,7 +72,7 @@ public class MockRecordReader implements RecordReader {
     try {
       this.output = output;
       int estimateRowSize = getEstimatedRecordSize(config.getTypes());
-      valueVectors = new ValueVector<?>[config.getTypes().length];
+      valueVectors = new ValueVector.ValueVectorBase[config.getTypes().length];
       int batchRecordCount = 250000 / estimateRowSize;
 
       for (int i = 0; i < config.getTypes().length; i++) {
@@ -90,8 +90,7 @@ public class MockRecordReader implements RecordReader {
   public int next() {
     int recordSetSize = Math.min(valueVectors[0].capacity(), this.config.getRecords()- recordsRead);
     recordsRead += recordSetSize;
-    for(ValueVector<?> v : valueVectors){
-      v.randomizeData();
+    for(ValueVector.ValueVectorBase v : valueVectors){
       v.setRecordCount(recordSetSize);
     }
     return recordSetSize;

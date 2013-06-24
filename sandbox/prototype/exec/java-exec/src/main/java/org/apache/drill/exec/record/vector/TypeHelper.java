@@ -74,41 +74,41 @@ public class TypeHelper {
     switch(mode){
     case OPTIONAL:
       switch(type){
-        case REPEATMAP: return RepeatMap.class;
-        case TINYINT: return Fixed1.class;
-        case SMALLINT: return Fixed2.class;
-        case INT: return Fixed4.class;
-        case BIGINT: return Fixed8.class;
-        case DECIMAL4: return Fixed4.class;
-        case DECIMAL8: return Fixed8.class;
-        case DECIMAL12: return Fixed12.class;
-        case DECIMAL16: return Fixed16.class;
-        case MONEY: return Fixed8.class;
-        case DATE: return Fixed4.class;
-        case TIME: return Fixed8.class;
-        case TIMETZ: return Fixed12.class;
-        case TIMESTAMP: return Fixed8.class;
-        case DATETIME: return Fixed8.class;
-        case INTERVAL: return Fixed12.class;
-        case FLOAT4: return Fixed4.class;
-        case FLOAT8: return Fixed8.class;
-        case BOOLEAN: return Bit.class;
-        case FIXEDCHAR: return FixedLen.class;
-        case VARCHAR1: return VarLen1.class;
-        case VARCHAR2: return VarLen2.class;
-        case VARCHAR4: return VarLen4.class;
-        case FIXEDBINARY: return FixedLen.class;
-        case VARBINARY1: return VarLen1.class;
-        case VARBINARY2: return VarLen2.class;
-        case VARBINARY4: return VarLen4.class;
-        case UINT1: return Fixed1.class;
-        case UINT2: return Fixed2.class;
-        case UINT4: return Fixed4.class;
-        case UINT8: return Fixed8.class;
-        case PROTO2: return VarLen2.class;
-        case PROTO4: return VarLen4.class;
-        case MSGPACK2: return VarLen2.class;
-        case MSGPACK4: return VarLen4.class;
+//        case REPEATMAP: return RepeatMap.class;
+//        case TINYINT: return Fixed1.class;
+//        case SMALLINT: return Fixed2.class;
+//        case INT: return Fixed4.class;
+//        case BIGINT: return Fixed8.class;
+//        case DECIMAL4: return Fixed4.class;
+//        case DECIMAL8: return Fixed8.class;
+//        case DECIMAL12: return Fixed12.class;
+//        case DECIMAL16: return Fixed16.class;
+//        case MONEY: return Fixed8.class;
+//        case DATE: return Fixed4.class;
+//        case TIME: return Fixed8.class;
+//        case TIMETZ: return Fixed12.class;
+//        case TIMESTAMP: return Fixed8.class;
+//        case DATETIME: return Fixed8.class;
+//        case INTERVAL: return Fixed12.class;
+//        case FLOAT4: return Fixed4.class;
+//        case FLOAT8: return Fixed8.class;
+//        case BOOLEAN: return Bit.class;
+//        case FIXEDCHAR: return FixedLen.class;
+//        case VARCHAR1: return VarLen1.class;
+//        case VARCHAR2: return VarLen2.class;
+//        case VARCHAR4: return VarLen4.class;
+//        case FIXEDBINARY: return FixedLen.class;
+//        case VARBINARY1: return VarLen1.class;
+//        case VARBINARY2: return VarLen2.class;
+//        case VARBINARY4: return VarLen4.class;
+//        case UINT1: return Fixed1.class;
+//        case UINT2: return Fixed2.class;
+//        case UINT4: return Fixed4.class;
+//        case UINT8: return Fixed8.class;
+//        case PROTO2: return VarLen2.class;
+//        case PROTO4: return VarLen4.class;
+//        case MSGPACK2: return VarLen2.class;
+//        case MSGPACK4: return VarLen4.class;
       }
       break;
     case REQUIRED:
@@ -195,58 +195,60 @@ public class TypeHelper {
   }
 
 
-  public static ValueVector<?> getNewVector(MaterializedField field, BufferAllocator allocator){
+  public static ValueVector.ValueVectorBase getNewVector(MaterializedField field, BufferAllocator allocator){
     MajorType type = field.getType();
     switch(type.getMode()){
     case REQUIRED:
       switch(type.getMinorType()){
-      case TINYINT: return new Fixed1(field, allocator);
-      case SMALLINT: return new Fixed2(field, allocator);
-      case INT: return new Fixed4(field, allocator);
-      case BIGINT: return new Fixed8(field, allocator);
-      case DECIMAL4: return new Fixed4(field, allocator);
-      case DECIMAL8: return new Fixed8(field, allocator);
-      case DECIMAL12: return new Fixed12(field, allocator);
-      case DECIMAL16: return new Fixed16(field, allocator);
-      case MONEY: return new Fixed8(field, allocator);
-      case DATE: return new Fixed4(field, allocator);
-      case TIME: return new Fixed8(field, allocator);
-      case TIMETZ: return new Fixed12(field, allocator);
-      case TIMESTAMP: return new Fixed8(field, allocator);
-      case DATETIME: return new Fixed8(field, allocator);
-      case INTERVAL: return new Fixed12(field, allocator);
-      case FLOAT4: return new Fixed4(field, allocator);
-      case FLOAT8: return new Fixed8(field, allocator);
-      case BOOLEAN: return new Bit(field, allocator);
-      case FIXEDCHAR: return new FixedLen(field, allocator);
-      case VARCHAR1: return new VarLen1(field, allocator);
-      case VARCHAR2: return new VarLen2(field, allocator);
-      case VARCHAR4: return new VarLen4(field, allocator);
-      case FIXEDBINARY: return new FixedLen(field, allocator);
-      case VARBINARY1: return new VarLen1(field, allocator);
-      case VARBINARY2: return new VarLen2(field, allocator);
-      case VARBINARY4: return new VarLen4(field, allocator);
-      case UINT1: return new Fixed1(field, allocator);
-      case UINT2: return new Fixed2(field, allocator);
-      case UINT4: return new Fixed4(field, allocator);
-      case UINT8: return new Fixed8(field, allocator);
-      case PROTO2: return new VarLen2(field, allocator);
-      case PROTO4: return new VarLen4(field, allocator);
-      case MSGPACK2: return new VarLen2(field, allocator);
-      case MSGPACK4: return new VarLen4(field, allocator);
+      case TINYINT: return new ValueVector.TinyInt(field, allocator);
+      case SMALLINT: return new ValueVector.SmallInt(field, allocator);
+      case INT: return new ValueVector.Int(field, allocator);
+      case BIGINT: return new ValueVector.BigInt(field, allocator);
+      case DECIMAL4: return new ValueVector.Decimal4(field, allocator);
+      case DECIMAL8: return new ValueVector.Decimal8(field, allocator);
+      case DECIMAL12: return new ValueVector.Decimal12(field, allocator);
+      case DECIMAL16: return new ValueVector.Decimal16(field, allocator);
+      case MONEY: return new ValueVector.Money(field, allocator);
+      case DATE: return new ValueVector.Date(field, allocator);
+      case TIME: return new ValueVector.Time(field, allocator);
+      case TIMETZ: return new ValueVector.TimeTZ(field, allocator);
+      case TIMESTAMP: return new ValueVector.TimeStamp(field, allocator);
+      case DATETIME: return new ValueVector.DateTime(field, allocator);
+      case INTERVAL: return new ValueVector.Interval(field, allocator);
+      case FLOAT4: return new ValueVector.Float4(field, allocator);
+      case FLOAT8: return new ValueVector.Float8(field, allocator);
+      case BOOLEAN: return new ValueVector.Bit(field, allocator);
+//      case FIXEDCHAR: return new FixedLen(field, allocator);
+      case VARCHAR1: return new ValueVector.VarChar1(field, allocator);
+      case VARCHAR2: return new ValueVector.VarChar2(field, allocator);
+      case VARCHAR4: return new ValueVector.VarChar4(field, allocator);
+//      case FIXEDBINARY: return new FixedLen(field, allocator);
+      case VARBINARY1: return new ValueVector.VarBinary1(field, allocator);
+      case VARBINARY2: return new ValueVector.VarBinary2(field, allocator);
+      case VARBINARY4: return new ValueVector.VarBinary4(field, allocator);
+      case UINT1: return new ValueVector.UInt1(field, allocator);
+      case UINT2: return new ValueVector.UInt2(field, allocator);
+      case UINT4: return new ValueVector.UInt4(field, allocator);
+      case UINT8: return new ValueVector.UInt8(field, allocator);
+      case PROTO2: return new ValueVector.Proto2(field, allocator);
+      case PROTO4: return new ValueVector.Proto4(field, allocator);
+      case MSGPACK2: return new ValueVector.MsgPack2(field, allocator);
+      case MSGPACK4: return new ValueVector.MsgPack4(field, allocator);
       }
       break;
     case REPEATED:
         switch(type.getMinorType()) {
-            case MAP: return new RepeatMap(field, allocator);
+          // TODO: add all subtypes
+//            case MAP: return new RepeatMap(field, allocator);
         }
       break;
     case OPTIONAL:
         switch(type.getMinorType()) {
-            case BOOLEAN: return new NullableBit(field, allocator);
-            case INT: return new NullableFixed4(field, allocator);
-            case FLOAT4: return new NullableFixed4(field, allocator);
-            case VARCHAR4: return new NullableVarLen4(field, allocator);
+            // TODO: add all subtypes
+//            case BOOLEAN: return new ValueVector.NullableBit(field, allocator);
+            case INT: return new ValueVector.NullableInt(field, allocator);
+            case FLOAT4: return new ValueVector.NullableFloat4(field, allocator);
+            case VARCHAR4: return new ValueVector.NullableVarChar4(field, allocator);
         }
       break;
     default:

@@ -27,12 +27,17 @@ import org.apache.drill.exec.proto.UserBitShared.FieldMetadata;
 import org.apache.drill.exec.record.DeadBuf;
 import org.apache.drill.exec.record.MaterializedField;
 
+// TODO:
+//    - Create ReadableValueVector to complement mutable version
+//    - Implement better interface for RepeatedBit.get() (and possibly .set())
+//    - Unit tests
+
 /**
  * ValueVectorTypes defines a set of template-generated classes which implement type-specific
  * value vectors.  The template approach was chosen due to the lack of multiple inheritence.  It
  * is also important that all related logic be as efficient as possible.
  */
-public class ValueVectorTypes {
+public class ValueVector {
 
   /**
    * ValueVectorBase implements common logic for all value vectors.  Note that only the derived
@@ -55,6 +60,7 @@ public class ValueVectorTypes {
     protected int getAllocationSize(int maxValueCount) { return maxValueCount; }
     protected void childResetAllocation(int valueCount, ByteBuf buf) { }
     protected void childClear() { }
+    public Object getObject(int index) { return null; }
 
     /**
      * Update the current buffer allocation utilize the provided allocation.
@@ -217,6 +223,10 @@ public class ValueVectorTypes {
       data.setByte((int) Math.floor(index/8), currentValue);
     }
 
+    public void set(int index, int value) {
+      set(index, value != 0);
+    }
+
     public boolean get(int index) {
       return (data.getByte((int) Math.floor(index/8)) & (int) Math.pow(2, (index % 8))) == 1;
     }
@@ -251,11 +261,11 @@ public class ValueVectorTypes {
      * Set the element at the given index to the given value.  Note that widths smaller than
      * 32 bits are handled by the ByteBuf interface.
      */
-    public void set(int index, <#if (type.width > 4)>${type.javaType}<#else>int</#if> value) {
+    public void set(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
       data.setBytes(index * ${type.width}, value);
     }
 
-    public ${type.javaType} get(int index) {
+    public ${minor.javaType!type.javaType} get(int index) {
       ByteBuf dst = allocator.buffer(${type.width});
       data.getBytes(index * ${type.width}, dst, 0, ${type.width});
       return dst;
@@ -271,16 +281,16 @@ public class ValueVectorTypes {
      * Set the element at the given index to the given value.  Note that widths smaller than
      * 32-bits are handled by the ByteBuf interface.
      */
-    public void set(int index, <#if (type.width > 4)>${type.javaType}<#else>int</#if> value) {
-      data.set${type.javaType?cap_first}(index * ${type.width}, value);
+    public void set(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
+      data.set${(minor.javaType!type.javaType)?cap_first}(index * ${type.width}, value);
     }
 
-    public ${type.javaType} get(int index) {
-      return data.get${type.javaType?cap_first}(index * ${type.width});
+    public ${minor.javaType!type.javaType} get(int index) {
+      return data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
     }
 
     public Object getObject(int index) {
-      return data.get${type.javaType?cap_first}(index);
+      return data.get${(minor.javaType!type.javaType)?cap_first}(index);
     }
 
       </#if> <#-- type.width -->
@@ -307,6 +317,11 @@ public class ValueVectorTypes {
       super(field, allocator);
       this.lengthVector = getNewLengthVector(allocator);
       this.expectedValueLength = expectedValueLength;
+    }
+
+    public ${minor.class}(MaterializedField field, BufferAllocator allocator) {
+      super(field, allocator);
+      this.lengthVector = getNewLengthVector(allocator);
     }
 
     protected UInt${type.width} getNewLengthVector(BufferAllocator allocator) {
@@ -402,14 +417,19 @@ public class ValueVectorTypes {
 
     protected Bit bits;
 
-    <#if type.major == "Fixed">
+    <#if type.major == "VarLen">
+    public Nullable${minor.class}(MaterializedField field, BufferAllocator allocator, int expectedValueLength) {
+      super(field, allocator, expectedValueLength);
+      bits = new Bit(null, allocator);
+    }
     public Nullable${minor.class}(MaterializedField field, BufferAllocator allocator) {
       super(field, allocator);
       bits = new Bit(null, allocator);
+      expectedValueLength = 0;
     }
     <#else>
-    public Nullable${minor.class}(MaterializedField field, BufferAllocator allocator, int expectedValueLength) {
-      super(field, allocator, expectedValueLength);
+    public Nullable${minor.class}(MaterializedField field, BufferAllocator allocator) {
+      super(field, allocator);
       bits = new Bit(null, allocator);
     }
     </#if>
@@ -418,12 +438,12 @@ public class ValueVectorTypes {
      * Set the element at the given index to the given value.  Note that widths smaller than
      * 32-bits are handled by the ByteBuf interface.
      */
-    public void set(int index, <#if (type.width > 4)>${type.javaType}<#elseif type.major == "VarLen">byte[]<#else>int</#if> value) {
+    public void set(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#elseif type.major == "VarLen">byte[]<#else>int</#if> value) {
       setNotNull(index);
       super.set(index, value);
     }
 
-    public <#if type.major == "Fixed">${type.javaType}<#else>ByteBuf</#if> get(int index) {
+    public <#if type.major == "VarLen">ByteBuf<#else>${minor.javaType!type.javaType}</#if> get(int index) {
       return isNull(index) ? null : super.get(index);
     }
 
@@ -491,12 +511,12 @@ public class ValueVectorTypes {
     private ${minor.class} dataVector;
     // protected UInt${type.width} offsetVector; // TODO: do we need this?
 
-    <#if type.major == "Fixed">
-    public Repeated${minor.class}(MaterializedField field, BufferAllocator allocator) {
-      dataVector = new ${minor.class}(field, allocator);
-    <#else>
+    <#if type.major == "VarLen">
     public Repeated${minor.class}(MaterializedField field, BufferAllocator allocator, int expectedValueLength) {
       dataVector = new ${minor.class}(field, allocator, expectedValueLength);
+    <#else>
+    public Repeated${minor.class}(MaterializedField field, BufferAllocator allocator) {
+      dataVector = new ${minor.class}(field, allocator);
     </#if>
       countVector = new UInt<#if (type.width > 4)>4<#else>${type.width}</#if>(null, allocator); // UInt1, UInt2 or Uint4
     }
@@ -505,13 +525,15 @@ public class ValueVectorTypes {
      * Set the element at the given index to the given values.  Note that widths smaller than
      * 32-bits are handled by the ByteBuf interface.
      */
-    public void set(int index, <#if (type.width > 4)> ${type.javaType}[]
+    public void set(int index, <#if (type.width > 4)> ${minor.javaType!type.javaType}[]
                                <#elseif type.major == "VarLen"> byte[][]
+                               <#elseif type.major == "Bit"> boolean[]
                                <#else> int[]
                                </#if> values) {
       countVector.set(index, values.length);
-      for (<#if (type.width > 4)> ${type.javaType}
+      for (<#if (type.width > 4)> ${minor.javaType!type.javaType}
            <#elseif type.major == "VarLen"> byte[]
+           <#elseif type.major == "Bit"> boolean
            <#else> int
            </#if> i: values) {
         // TODO: memcpy block of values?
@@ -523,6 +545,7 @@ public class ValueVectorTypes {
      * Get the elements at the given index.
      */
     public ByteBuf get(int index) {
+      // TODO: handle Bit vector?
       return dataVector.data.slice(index, countVector.get(index));
     }
 

@@ -172,9 +172,9 @@
                 <artifactId>fmpp-maven-plugin</artifactId>
                 <version>1.0</version>
                 <configuration>
-                    <cfgFile>src/main/resources/codegen/ValueVectors/config.fmpp</cfgFile>
+                    <cfgFile>src/main/codegen/ValueVectors/config.fmpp</cfgFile>
                     <outputDirectory>target/generated-sources/org/apache/drill/exec/record/vector</outputDirectory>
-                    <templateDirectory>src/main/resources/codegen/ValueVectors/templates</templateDirectory>
+                    <templateDirectory>src/main/codegen/ValueVectors/templates</templateDirectory>
                 </configuration>
                 <executions>
                     <execution>
