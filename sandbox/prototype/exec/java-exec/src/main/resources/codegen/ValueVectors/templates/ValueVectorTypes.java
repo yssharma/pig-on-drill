@@ -15,13 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
-
-// TODO:
-//       add read-only class
-//       add repeated map
-//       add repeatable  
-//       add tests       
-//       catch netty ByteBuf exceptions
+package org.apache.drill.exec.record.vector;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -240,7 +234,6 @@ public class ValueVectorTypes {
 <#list types as type>
   <#list type.minor as minor>
     <#if type.major == "Fixed">
-      <#if (type.width > 8)>
 
   public static class ${minor.class} extends ValueVectorBase {
     static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}.class);
@@ -249,11 +242,16 @@ public class ValueVectorTypes {
       super(field, allocator);
     }
 
+    protected int getAllocationSize(int valueCount) {
+      return (int) Math.ceil(valueCount * ${type.width});
+    }
+
+      <#if (type.width > 8)>
     /**
      * Set the element at the given index to the given value.  Note that widths smaller than
-     * 32-bits are handled by the ByteBuf interface.
+     * 32 bits are handled by the ByteBuf interface.
      */
-    public void set(int index, <#if (type.width > 4)>${type.javaType}<#elseif type.major == "VarLen">byte[]<#else>int</#if> value) {
+    public void set(int index, <#if (type.width > 4)>${type.javaType}<#else>int</#if> value) {
       data.setBytes(index * ${type.width}, value);
     }
 
@@ -268,27 +266,12 @@ public class ValueVectorTypes {
       data.getBytes(index, dst, 0, ${type.width});
       return dst;
     }
-
-    protected int getAllocationSize(int valueCount) {
-      return (int) Math.ceil(valueCount * ${type.width});
-    }
-
-  }
-
-      <#else> <#-- type.width -->
-
-  public static class ${minor.class} extends ValueVectorBase {
-    static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}.class);
-
-    public ${minor.class}(MaterializedField field, BufferAllocator allocator) {
-      super(field, allocator);
-    }
-
+      <#else> <#-- type.width <= 8 -->
     /**
      * Set the element at the given index to the given value.  Note that widths smaller than
      * 32-bits are handled by the ByteBuf interface.
      */
-    public void set(int index, <#if (type.width > 4)>${type.javaType}<#elseif type.major == "VarLen">byte[]<#else>int</#if> value) {
+    public void set(int index, <#if (type.width > 4)>${type.javaType}<#else>int</#if> value) {
       data.set${type.javaType?cap_first}(index * ${type.width}, value);
     }
 
@@ -300,13 +283,9 @@ public class ValueVectorTypes {
       return data.get${type.javaType?cap_first}(index);
     }
 
-    protected int getAllocationSize(int valueCount) {
-      return (int) Math.ceil(valueCount * ${type.width});
-    }
-
+      </#if> <#-- type.width -->
   }
 
-      </#if> <#-- type.width -->
     <#elseif type.major == "VarLen">
 
   /**
@@ -338,7 +317,6 @@ public class ValueVectorTypes {
       lengthVector.cloneMetadata(other.lengthVector);
       other.expectedValueLength = expectedValueLength;
     }
-
 
     public ByteBuf get(int index) {
       int offset = lengthVector.get(index);
@@ -440,7 +418,7 @@ public class ValueVectorTypes {
      * Set the element at the given index to the given value.  Note that widths smaller than
      * 32-bits are handled by the ByteBuf interface.
      */
-    public void set(int index, <#if (type.width > 4)>${type.javaType?cap_first}<#elseif type.major == "VarLen">byte[]<#else>int</#if> value) {
+    public void set(int index, <#if (type.width > 4)>${type.javaType}<#elseif type.major == "VarLen">byte[]<#else>int</#if> value) {
       setNotNull(index);
       super.set(index, value);
     }
@@ -506,7 +484,84 @@ public class ValueVectorTypes {
     public Object getObject(int index) {
       return isNull(index) ? null : super.getObject(index);
     }
+  }
 
+  public static class Repeated${minor.class} {
+    protected UInt<#if (type.width > 4)>4<#else>${type.width}</#if> countVector; // number of repeated elements in the record
+    private ${minor.class} dataVector;
+    // protected UInt${type.width} offsetVector; // TODO: do we need this?
+
+    <#if type.major == "Fixed">
+    public Repeated${minor.class}(MaterializedField field, BufferAllocator allocator) {
+      dataVector = new ${minor.class}(field, allocator);
+    <#else>
+    public Repeated${minor.class}(MaterializedField field, BufferAllocator allocator, int expectedValueLength) {
+      dataVector = new ${minor.class}(field, allocator, expectedValueLength);
+    </#if>
+      countVector = new UInt<#if (type.width > 4)>4<#else>${type.width}</#if>(null, allocator); // UInt1, UInt2 or Uint4
+    }
+
+    /**
+     * Set the element at the given index to the given values.  Note that widths smaller than
+     * 32-bits are handled by the ByteBuf interface.
+     */
+    public void set(int index, <#if (type.width > 4)> ${type.javaType}[]
+                               <#elseif type.major == "VarLen"> byte[][]
+                               <#else> int[]
+                               </#if> values) {
+      countVector.set(index, values.length);
+      for (<#if (type.width > 4)> ${type.javaType}
+           <#elseif type.major == "VarLen"> byte[]
+           <#else> int
+           </#if> i: values) {
+        // TODO: memcpy block of values?
+        dataVector.set(index, i);
+      }
+    }
+
+    /**
+     * Get the elements at the given index.
+     */
+    public ByteBuf get(int index) {
+      return dataVector.data.slice(index, countVector.get(index));
+    }
+
+    protected void childCloneMetadata(Repeated${minor.class} other) {
+      countVector.cloneMetadata(other.countVector);
+      dataVector.cloneInto(other.dataVector);
+    }
+
+    protected int getAllocationSize(int valueCount) {
+      return countVector.getAllocationSize(valueCount) + dataVector.getAllocationSize(valueCount);
+    }
+
+    public MaterializedField getField() {
+      return dataVector.field;
+    }
+
+    protected void childResetAllocation(int valueCount, ByteBuf buf) {
+      int firstSize = countVector.getAllocationSize(valueCount);
+      countVector.resetAllocation(valueCount, buf.slice(0, firstSize));
+      dataVector.resetAllocation(valueCount, buf.slice(firstSize, getAllocationSize(valueCount)));
+    }
+
+    protected void childClear() {
+      countVector.clear();
+      dataVector.clear();
+    }
+
+    public ByteBuf[] getBuffers() {
+      return new ByteBuf[]{countVector.data, dataVector.data};
+    }
+
+    public void setRecordCount(int recordCount) {
+      dataVector.setRecordCount(recordCount);
+      countVector.setRecordCount(recordCount);
+    }
+
+    public ByteBuf getObjects(int index) {
+      return get(index);
+    }      
   }
   </#list>
 </#list>
