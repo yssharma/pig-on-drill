@@ -29,7 +29,7 @@ import org.apache.drill.exec.record.MaterializedField;
 
 // TODO:
 //    - Create ReadableValueVector to complement mutable version
-//    - Implement better interface for RepeatedBit.get() (and possibly .set())
+//    - Implement repeated map
 //    - Unit tests
 
 /**
@@ -522,6 +522,18 @@ public class ValueVector {
     }
 
     /**
+     * Add an element to the given record index.
+     */
+    public void add(int index, <#if (type.width > 4)> ${minor.javaType!type.javaType}
+                               <#elseif type.major == "VarLen"> byte[]
+                               <#elseif type.major == "Bit"> boolean
+                               <#else> int
+                               </#if> value) {
+      countVector.set(index, countVector.get(index));
+      dataVector.set(index, value);
+    }
+
+    /**
      * Set the element at the given index to the given values.  Note that widths smaller than
      * 32-bits are handled by the ByteBuf interface.
      */
@@ -544,9 +556,14 @@ public class ValueVector {
     /**
      * Get the elements at the given index.
      */
-    public ByteBuf get(int index) {
+    public int getCount(int index) {
       // TODO: handle Bit vector?
-      return dataVector.data.slice(index, countVector.get(index));
+      return countVector.get(index);
+    }
+
+    public <#if type.major == "VarLen">ByteBuf<#else>${minor.javaType!type.javaType}</#if> get(int index, int positionIndex) {
+      assert positionIndex < countVector.get(index);
+      return dataVector.get(index + positionIndex);
     }
 
     protected void childCloneMetadata(Repeated${minor.class} other) {
@@ -582,9 +599,9 @@ public class ValueVector {
       countVector.setRecordCount(recordCount);
     }
 
-    public ByteBuf getObjects(int index) {
-      return get(index);
-    }      
+    // public ByteBuf getObject(int index, int positionIndex) {
+    //   return get(index, positionIndex);
+    // }
   }
   </#list>
 </#list>
