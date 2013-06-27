@@ -57,7 +57,7 @@ public class RecordBatchLoader implements Iterable<IntObjectCursor<ValueVector.V
    * @throws SchemaChangeException 
    */
   public boolean load(RecordBatchDef def, ByteBuf buf) throws SchemaChangeException {
-//    logger.debug("Loading record batch with def {} and data {}", def, buf);
+    logger.debug("Loading record batch with def {} and data {}", def, buf);
     this.recordCount = def.getRecordCount();
     boolean schemaChanged = false;
     
@@ -71,7 +71,7 @@ public class RecordBatchLoader implements Iterable<IntObjectCursor<ValueVector.V
       ValueVector.ValueVectorBase v = vectors.remove(fieldDef.getFieldId());
       if (v != null) {
         if (v.getField().getDef().equals(fieldDef)) {
-          v.setTo(fmd, buf.slice(bufOffset, fmd.getBufferLength()));
+          v.allocateNew(fmd.getBufferLength(), buf.slice(bufOffset, fmd.getBufferLength()), recordCount);
           newVectors.put(fieldDef.getFieldId(), v);
           continue;
         } else {
@@ -83,7 +83,7 @@ public class RecordBatchLoader implements Iterable<IntObjectCursor<ValueVector.V
       schemaChanged = true;
       MaterializedField m = new MaterializedField(fieldDef);
       v = TypeHelper.getNewVector(m, allocator);
-      v.setTo(fmd, buf.slice(bufOffset, fmd.getBufferLength()));
+      v.allocateNew(fmd.getBufferLength(), buf.slice(bufOffset, fmd.getBufferLength()), recordCount);
       newVectors.put(fieldDef.getFieldId(), v);
     }
     

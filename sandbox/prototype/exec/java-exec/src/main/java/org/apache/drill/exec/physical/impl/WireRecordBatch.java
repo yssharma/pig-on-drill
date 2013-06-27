@@ -76,7 +76,7 @@ public class WireRecordBatch implements RecordBatch{
   public IterOutcome next() {
     RawFragmentBatch batch = fragProvider.getNext();
     try{
-      if(batch == null) return IterOutcome.NONE;
+      if (batch == null) return IterOutcome.NONE;
 
       logger.debug("Next received batch {}", batch);
 

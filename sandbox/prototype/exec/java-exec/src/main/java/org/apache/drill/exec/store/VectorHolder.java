@@ -54,6 +54,7 @@ public class VectorHolder {
 
     public void reset() {
         currentLength = 0;
+//        length = 0;
         vector.allocateNew(length);
     }
 }

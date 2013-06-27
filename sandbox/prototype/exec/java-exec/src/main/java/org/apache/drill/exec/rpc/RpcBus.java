@@ -132,7 +132,6 @@ public abstract class RpcBus<T extends EnumLite, C extends RemoteConnection> imp
     @Override
     public void messageReceived(ChannelHandlerContext ctx, InboundRpcMessage msg) throws Exception {
       if (!ctx.channel().isOpen()) return;
-
       if (RpcConstants.EXTRA_DEBUGGING) logger.debug("Received message {}", msg);
       switch (msg.mode) {
       case REQUEST:

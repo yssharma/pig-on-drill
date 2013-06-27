@@ -30,7 +30,6 @@ import org.apache.drill.exec.record.MaterializedField;
 // TODO:
 //    - Create ReadableValueVector to complement mutable version
 //    - Implement repeated map
-//    - Unit tests
 
 /**
  * ValueVectorTypes defines a set of template-generated classes which implement type-specific
@@ -48,93 +47,70 @@ public class ValueVector {
 
     protected final BufferAllocator allocator;
     protected ByteBuf data = DeadBuf.DEAD_BUFFER;
-    protected int maxValueCount = 0;
-    protected final MaterializedField field;
-    private int recordCount;
+    protected MaterializedField field;
+    protected int recordCount;
+    protected int totalBytes;
 
     public ValueVectorBase(MaterializedField field, BufferAllocator allocator) {
       this.allocator = allocator;
       this.field = field;
     }
 
-    protected int getAllocationSize(int maxValueCount) { return maxValueCount; }
-    protected void childResetAllocation(int valueCount, ByteBuf buf) { }
-    protected void childClear() { }
-    public Object getObject(int index) { return null; }
-
     /**
-     * Update the current buffer allocation utilize the provided allocation.
-     * @param maxValueCount
-     * @param buf
+     * Get the explicitly specified size of the allocated buffer, if available.  Otherwise
+     * calculate the size based on width and record count.
      */
-    protected final void resetAllocation(int maxValueCount, ByteBuf buf) {
-      clear();
-      buf.retain();
-      this.maxValueCount = maxValueCount;
-      this.data = buf;
-      childResetAllocation(maxValueCount, buf);
-    }
-
-    protected final void clear() {
-      if (this.data != DeadBuf.DEAD_BUFFER) {
-        this.data.release();
-        this.data = DeadBuf.DEAD_BUFFER;
-        this.maxValueCount = 0;
-      }
-      childClear();
+    public int getAllocatedSize() {
+      return (totalBytes > 0) ? totalBytes : getSizeFromCount(recordCount);
     }
 
     /**
-     * Update the value vector to the provided record information.
-     * @param metadata
-     * @param data
+     * Virtaul method to get the size requirement (in bytes) for the given number of values.  Only
+     * accurate for fixed width value vectors.
      */
-    public void setTo(FieldMetadata metadata, ByteBuf data) {
-      clear();
-      resetAllocation(metadata.getValueCount(), data);
+    protected int getSizeFromCount(int valueCount) {
+      return 0;
     }
 
     /**
-     * Zero copy move of data from this vector to the target vector. Any future access to this vector without being
-     * populated by a new vector will cause problems.
-     *
-     * @param vector
-     */
-    public void transferTo(ValueVectorBase vector) {
-      vector.data = this.data;
-      cloneMetadata(vector);
-      childResetAllocation(maxValueCount, data);
-      clear();
-    }
-
-    // TODO: add derived implementations
-    public void cloneMetadata(ValueVectorBase other) {
-      other.maxValueCount = this.maxValueCount;
-    }
-
-    // TODO: add derived implementations
-    /**
-     * Copies the data from this vector into its pair.
-     *
-     * @param vector
-     */
-    public void cloneInto(ValueVectorBase vector) {
-      vector.allocateNew(maxValueCount);
-      data.writeBytes(vector.data);
-      cloneMetadata(vector);
-      childResetAllocation(maxValueCount, vector.data);
-    }
-
-    /**
-     * Allocate a new memory space for this vector.
+     * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
      *
      * @param valueCount
-     *          The number of possible values which should be contained in this vector.
+     *          The number of values which can be contained within this vector.
+     */
+    public void allocateNew(int totalBytes, ByteBuf sourceBuffer, int valueCount) {
+      clear();
+      sourceBuffer.retain();
+      this.recordCount = valueCount;
+      this.totalBytes = totalBytes > 0 ? totalBytes : getSizeFromCount(valueCount);
+      this.data = sourceBuffer;
+    }
+
+    /**
+     * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
+     *
+     * @param valueCount
+     *          The number of values which can be contained within this vector.
      */
     public void allocateNew(int valueCount) {
-      int allocationSize = getAllocationSize(valueCount);
-      ByteBuf newBuf = allocator.buffer(allocationSize);
-      resetAllocation(valueCount, newBuf);
+      totalBytes = getSizeFromCount(valueCount);
+      allocateNew(totalBytes, allocator.buffer(totalBytes), valueCount);
+    }
+
+    protected void clear() {
+      if (data != DeadBuf.DEAD_BUFFER) {
+        data.release();
+        data = DeadBuf.DEAD_BUFFER;
+        recordCount = 0;
+        totalBytes = 0;
+      }
+    }
+
+    /**
+     * Get an object representation of the element at the given index
+     */
+    public Object getObject(int index) {
+      return null;
     }
 
     /**
@@ -154,7 +130,7 @@ public class ValueVector {
      * @return Vector size
      */
     public int capacity() {
-      return maxValueCount;
+      return getRecordCount();
     }
 
     /**
@@ -170,7 +146,7 @@ public class ValueVector {
      *
      * @return
      */
-    public MaterializedField getField(){
+    public MaterializedField getField() {
       return field;
     }
 
@@ -215,12 +191,12 @@ public class ValueVector {
      * Set the element at the given index to the given value (1 == true, 0 == false).
      */
     public void set(int index, boolean value) {
-      byte currentValue = data.getByte((int)Math.floor(index/8));
+      byte currentByte = data.getByte((int)Math.floor(index/8));
       if (value)
-        currentValue |= (byte) Math.pow(2, (index % 8));
+        currentByte |= (byte) Math.pow(2, (index % 8));
       else
-        currentValue ^= (byte) Math.pow(2, (index % 8));
-      data.setByte((int) Math.floor(index/8), currentValue);
+        currentByte ^= (byte) Math.pow(2, (index % 8));
+      data.setByte((int) Math.floor(index/8), currentByte);
     }
 
     public void set(int index, int value) {
@@ -228,15 +204,39 @@ public class ValueVector {
     }
 
     public boolean get(int index) {
-      return (data.getByte((int) Math.floor(index/8)) & (int) Math.pow(2, (index % 8))) == 1;
+      logger.warn("BIT GET: index: {}, byte: {}, mask: {}, masked byte: {}",
+                  index,
+                  data.getByte((int)Math.floor(index/8)),
+                  (int)Math.pow(2, (index % 8)),
+                  data.getByte((int)Math.floor(index/8)) & (int)Math.pow(2, (index % 8)));
+
+      return (data.getByte((int)Math.floor(index/8)) & (int)Math.pow(2, (index % 8))) != 0;
     }
 
     public Object getObject(int index) {
       return new Boolean(get(index));
     }
 
-    protected int getAllocationSize(int valueCount) {
-      return (int) Math.ceil(valueCount / 8);
+    /**
+     * Get the size requirement (in bytes) for the given number of values.
+     */
+    protected int getSizeFromCount(int valueCount) {
+      return (int) Math.floor(valueCount / 8);
+    }
+
+    public int getAllocatedSize() {
+      return (int) Math.ceil(recordCount / 8);
+    }
+
+    /**
+     * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
+     *
+     * @param valueCount
+     *          The number of values which can be contained within this vector.
+     */
+    public void allocateNew(int valueCount) {
+      totalBytes = (int)Math.ceil(valueCount / 8);
+      allocateNew(totalBytes, allocator.buffer(totalBytes), valueCount);
     }
 
   }
@@ -252,8 +252,27 @@ public class ValueVector {
       super(field, allocator);
     }
 
-    protected int getAllocationSize(int valueCount) {
-      return (int) Math.ceil(valueCount * ${type.width});
+    /**
+     * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
+     *
+     * @param valueCount
+     *          The number of values which can be contained within this vector.
+     */
+    public void allocateNew(int valueCount) {
+      totalBytes = valueCount * ${type.width};
+      allocateNew(totalBytes, allocator.buffer(totalBytes), valueCount);
+    }
+
+    public int getAllocatedSize() {
+      return (int) Math.ceil(totalBytes);
+    }
+
+    /**
+     * Get the size requirement (in bytes) for the given number of values.  Only accurate
+     * for fixed width value vectors.
+     */
+    protected int getSizeFromCount(int valueCount) {
+      return valueCount * ${type.width};
     }
 
       <#if (type.width > 8)>
@@ -281,7 +300,7 @@ public class ValueVector {
      * Set the element at the given index to the given value.  Note that widths smaller than
      * 32-bits are handled by the ByteBuf interface.
      */
-    public void set(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
+    public void set(int index, <#if (type.width >= 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
       data.set${(minor.javaType!type.javaType)?cap_first}(index * ${type.width}, value);
     }
 
@@ -311,68 +330,62 @@ public class ValueVector {
     static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}.class);
 
     protected final UInt${type.width} lengthVector;
-    protected int expectedValueLength;
-
-    public ${minor.class}(MaterializedField field, BufferAllocator allocator, int expectedValueLength) {
-      super(field, allocator);
-      this.lengthVector = getNewLengthVector(allocator);
-      this.expectedValueLength = expectedValueLength;
-    }
 
     public ${minor.class}(MaterializedField field, BufferAllocator allocator) {
       super(field, allocator);
-      this.lengthVector = getNewLengthVector(allocator);
-    }
-
-    protected UInt${type.width} getNewLengthVector(BufferAllocator allocator) {
-      return new UInt${type.width}(null, allocator);
-    }
-
-    protected void childCloneMetadata(${minor.class} other) {
-      lengthVector.cloneMetadata(other.lengthVector);
-      other.expectedValueLength = expectedValueLength;
+      this.lengthVector = new UInt${type.width}(null, allocator);
     }
 
     public ByteBuf get(int index) {
       int offset = lengthVector.get(index);
       int length = lengthVector.get(index+1) - offset;
       ByteBuf dst = allocator.buffer(length);
-      data.getBytes(index, dst, 0, length);
+      data.getBytes(offset, dst, 0, length);
       return dst;
     }
 
     public void set(int index, byte[] bytes) {
       checkArgument(index >= 0);
       if (index == 0) {
-        lengthVector.set(0, bytes.length);
+        lengthVector.set(0, 0);
+        lengthVector.set(1, bytes.length);
         data.setBytes(0, bytes);
       }
       else {
-        int previousOffset = lengthVector.get(index - 1);
-        lengthVector.set(index, previousOffset + bytes.length);
-        data.setBytes(previousOffset, bytes);
+        int currentOffset = lengthVector.get(index);
+        lengthVector.set(index + 1, currentOffset + bytes.length); // set the end offset of the buffer
+        data.setBytes(currentOffset, bytes);
       }
     }
 
     @Override
-    protected int getAllocationSize(int valueCount) {
-      return lengthVector.getAllocationSize(valueCount) + expectedValueLength * valueCount;
+    public int getAllocatedSize() {
+      return lengthVector.getAllocatedSize() + totalBytes;
+    }
+
+    /**
+     * Get the size requirement (in bytes) for the given number of values.  Only accurate
+     * for fixed width value vectors.
+     */
+    protected int getSizeFromCount(int valueCount) {
+      return valueCount * ${type.width};
     }
 
     @Override
-    protected void childResetAllocation(int valueCount, ByteBuf buf) {
-      int firstSize = lengthVector.getAllocationSize(valueCount);
-      lengthVector.resetAllocation(valueCount, buf.slice(0, firstSize));
-      data = buf.slice(firstSize, expectedValueLength * valueCount);
-    }
-
-    @Override
-    protected void childClear() {
+    protected void clear() {
+      super.clear();
       lengthVector.clear();
-      if (data != DeadBuf.DEAD_BUFFER) {
-        data.release();
-        data = DeadBuf.DEAD_BUFFER;
-      }
+    }
+
+    /**
+     * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
+     *
+     * @param valueCount
+     *          The number of values which can be contained within this vector.
+     */
+    public void allocateNew(int totalBytes, ByteBuf sourceBuffer, int valueCount) {
+      super.allocateNew(totalBytes, sourceBuffer, valueCount);
+      lengthVector.allocateNew(valueCount);
     }
 
     @Override
@@ -387,6 +400,7 @@ public class ValueVector {
     }
 
     public void setTotalBytes(int totalBytes){
+      this.totalBytes = totalBytes;
       data.writerIndex(totalBytes);
     }
 
@@ -417,22 +431,10 @@ public class ValueVector {
 
     protected Bit bits;
 
-    <#if type.major == "VarLen">
-    public Nullable${minor.class}(MaterializedField field, BufferAllocator allocator, int expectedValueLength) {
-      super(field, allocator, expectedValueLength);
-      bits = new Bit(null, allocator);
-    }
-    public Nullable${minor.class}(MaterializedField field, BufferAllocator allocator) {
-      super(field, allocator);
-      bits = new Bit(null, allocator);
-      expectedValueLength = 0;
-    }
-    <#else>
     public Nullable${minor.class}(MaterializedField field, BufferAllocator allocator) {
       super(field, allocator);
       bits = new Bit(null, allocator);
     }
-    </#if>
 
     /**
      * Set the element at the given index to the given value.  Note that widths smaller than
@@ -443,13 +445,15 @@ public class ValueVector {
       super.set(index, value);
     }
 
+    /**
+     * Get the element at the specified position.
+     * @return  value of the element, if not null
+     * @throws  NullValueException if the value is null
+     */
     public <#if type.major == "VarLen">ByteBuf<#else>${minor.javaType!type.javaType}</#if> get(int index) {
-      return isNull(index) ? null : super.get(index);
-    }
-
-    protected void childCloneMetadata(Nullable${minor.class} other) {
-      bits.cloneMetadata(other.bits);
-      super.cloneInto(other);
+      if (isNull(index))
+        throw new NullValueException(index);
+      return super.get(index);
     }
 
     public void setNull(int index) {
@@ -464,28 +468,33 @@ public class ValueVector {
       return !bits.get(index);
     }
 
+    /**
+     * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
+     *
+     * @param valueCount
+     *          The number of values which can be contained within this vector.
+     */
+    public void allocateNew(int totalBytes, ByteBuf sourceBuffer, int valueCount) {
+      super.allocateNew(totalBytes, sourceBuffer, valueCount);
+      bits.allocateNew(valueCount);
+    }
+
     @Override
-    protected int getAllocationSize(int valueCount) {
-      return bits.getAllocationSize(valueCount) + super.getAllocationSize(valueCount);
+    public int getAllocatedSize() {
+      return bits.getAllocatedSize() + super.getAllocatedSize();
+    }
+
+    /**
+     * Get the size requirement (in bytes) for the given number of values.  Only accurate
+     * for fixed width value vectors.
+     */
+    protected int getSizeFromCount(int valueCount) {
+      return valueCount * ${type.width} + (valueCount / 8);
     }
 
     @Override
     public MaterializedField getField() {
       return field;
-    }
-
-    @Override
-    protected void childResetAllocation(int valueCount, ByteBuf buf) {
-      int firstSize = bits.getAllocationSize(valueCount);
-      bits.resetAllocation(valueCount, buf.slice(0, firstSize));
-          // bits.setAllFalse();
-      super.resetAllocation(valueCount, buf.slice(firstSize, getAllocationSize(valueCount)));
-    }
-
-    @Override
-    protected void childClear() {
-      bits.clear();
-      super.clear();
     }
 
     @Override
@@ -497,7 +506,6 @@ public class ValueVector {
     public void setRecordCount(int recordCount) {
       super.setRecordCount(recordCount);
       bits.setRecordCount(recordCount);
-      super.setRecordCount(recordCount);
     }
 
     @Override
@@ -506,19 +514,21 @@ public class ValueVector {
     }
   }
 
-  public static class Repeated${minor.class} {
-    protected UInt<#if (type.width > 4)>4<#else>${type.width}</#if> countVector; // number of repeated elements in the record
-    private ${minor.class} dataVector;
-    // protected UInt${type.width} offsetVector; // TODO: do we need this?
+  public static class Repeated${minor.class} extends ${minor.class} {
 
-    <#if type.major == "VarLen">
-    public Repeated${minor.class}(MaterializedField field, BufferAllocator allocator, int expectedValueLength) {
-      dataVector = new ${minor.class}(field, allocator, expectedValueLength);
-    <#else>
+    private UInt4 countVector;    // number of repeated elements in each record
+    private UInt4 offsetVector;   // offsets to start of each record
+
     public Repeated${minor.class}(MaterializedField field, BufferAllocator allocator) {
-      dataVector = new ${minor.class}(field, allocator);
-    </#if>
-      countVector = new UInt<#if (type.width > 4)>4<#else>${type.width}</#if>(null, allocator); // UInt1, UInt2 or Uint4
+      super(field, allocator);
+      countVector = new UInt4(null, allocator);
+      offsetVector = new UInt4(null, allocator);
+    }
+
+    public void allocateNew(int totalBytes, ByteBuf sourceBuffer, int valueCount) {
+      super.allocateNew(totalBytes, sourceBuffer, valueCount);
+      countVector.allocateNew(valueCount);
+      offsetVector.allocateNew(valueCount);
     }
 
     /**
@@ -529,79 +539,61 @@ public class ValueVector {
                                <#elseif type.major == "Bit"> boolean
                                <#else> int
                                </#if> value) {
-      countVector.set(index, countVector.get(index));
-      dataVector.set(index, value);
+      countVector.set(index, countVector.get(index) + 1);
+      offsetVector.set(index, offsetVector.get(index - 1) + countVector.get(index-1));
+      super.set(offsetVector.get(index), value);
+    }
+
+    public <#if type.major == "VarLen">ByteBuf<#else>${minor.javaType!type.javaType}</#if> get(int index, int positionIndex) {
+      assert positionIndex < countVector.get(index);
+      return super.get(offsetVector.get(index) + positionIndex);
+    }
+
+    public MaterializedField getField() {
+      return field;
     }
 
     /**
-     * Set the element at the given index to the given values.  Note that widths smaller than
-     * 32-bits are handled by the ByteBuf interface.
+     * Get the size requirement (in bytes) for the given number of values.  Only accurate
+     * for fixed width value vectors.
      */
-    public void set(int index, <#if (type.width > 4)> ${minor.javaType!type.javaType}[]
-                               <#elseif type.major == "VarLen"> byte[][]
-                               <#elseif type.major == "Bit"> boolean[]
-                               <#else> int[]
-                               </#if> values) {
-      countVector.set(index, values.length);
-      for (<#if (type.width > 4)> ${minor.javaType!type.javaType}
-           <#elseif type.major == "VarLen"> byte[]
-           <#elseif type.major == "Bit"> boolean
-           <#else> int
-           </#if> i: values) {
-        // TODO: memcpy block of values?
-        dataVector.set(index, i);
-      }
+    protected int getSizeFromCount(int valueCount) {
+      return valueCount * ${type.width} + (valueCount * <#if (type.width > 4)>4<#else>${type.width}</#if>);
+    }
+
+    /**
+     * Get the explicitly specified size of the allocated buffer, if available.  Otherwise
+     * calculate the size based on width and record count.
+     */
+    public int getAllocatedSize() {
+      return super.getAllocatedSize() +
+             countVector.getAllocatedSize() +
+             offsetVector.getAllocatedSize();
     }
 
     /**
      * Get the elements at the given index.
      */
     public int getCount(int index) {
-      // TODO: handle Bit vector?
       return countVector.get(index);
     }
 
-    public <#if type.major == "VarLen">ByteBuf<#else>${minor.javaType!type.javaType}</#if> get(int index, int positionIndex) {
-      assert positionIndex < countVector.get(index);
-      return dataVector.get(index + positionIndex);
-    }
-
-    protected void childCloneMetadata(Repeated${minor.class} other) {
-      countVector.cloneMetadata(other.countVector);
-      dataVector.cloneInto(other.dataVector);
-    }
-
-    protected int getAllocationSize(int valueCount) {
-      return countVector.getAllocationSize(valueCount) + dataVector.getAllocationSize(valueCount);
-    }
-
-    public MaterializedField getField() {
-      return dataVector.field;
-    }
-
-    protected void childResetAllocation(int valueCount, ByteBuf buf) {
-      int firstSize = countVector.getAllocationSize(valueCount);
-      countVector.resetAllocation(valueCount, buf.slice(0, firstSize));
-      dataVector.resetAllocation(valueCount, buf.slice(firstSize, getAllocationSize(valueCount)));
-    }
-
-    protected void childClear() {
-      countVector.clear();
-      dataVector.clear();
-    }
-
-    public ByteBuf[] getBuffers() {
-      return new ByteBuf[]{countVector.data, dataVector.data};
-    }
-
     public void setRecordCount(int recordCount) {
-      dataVector.setRecordCount(recordCount);
+      super.setRecordCount(recordCount);
+      offsetVector.setRecordCount(recordCount);
       countVector.setRecordCount(recordCount);
     }
 
-    // public ByteBuf getObject(int index, int positionIndex) {
-    //   return get(index, positionIndex);
-    // }
+    public ByteBuf[] getBuffers() {
+      return new ByteBuf[]{countVector.data, offsetVector.data, data};
+    }
+
+    public Object getObject(int index) {
+      return data.slice(index, getSizeFromCount(countVector.get(index)));
+    }
+
+
+
   }
   </#list>
 </#list>

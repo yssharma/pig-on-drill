@@ -82,7 +82,6 @@ public class FragmentRunner implements Runnable, CancelableQuery, StatusProvider
           }else{
             updateState(FragmentState.RUNNING, FragmentState.FINISHED, false);
           }
-          
         }
       }
       
@@ -92,6 +91,7 @@ public class FragmentRunner implements Runnable, CancelableQuery, StatusProvider
       }
       
     }catch(Exception ex){
+      System.out.println("Fragment Failed: caught " + ex);
       internalFail(ex);
     }finally{
       t.stop();

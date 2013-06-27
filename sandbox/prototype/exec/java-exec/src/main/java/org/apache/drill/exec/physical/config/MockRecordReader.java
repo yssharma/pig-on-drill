@@ -55,14 +55,14 @@ public class MockRecordReader implements RecordReader {
 
   private ValueVector.ValueVectorBase getVector(int fieldId, String name, MajorType type, int length) {
     assert context != null : "Context shouldn't be null.";
-    
+    System.out.println("Mock Reader getting Vector: " + name + ", len: " + length);
     if(type.getMode() != DataMode.REQUIRED) throw new UnsupportedOperationException();
     
     MaterializedField f = MaterializedField.create(new SchemaPath(name), fieldId, 0, type);
     ValueVector.ValueVectorBase v;
     v = TypeHelper.getNewVector(f, context.getAllocator());
     v.allocateNew(length);
-    
+    System.out.println("Mock Reader getting Vector: " + v.getBuffers() + " class: " + v.getClass().getName() + " allocSize: " + v.getAllocatedSize());
     return v;
 
   }
@@ -88,9 +88,11 @@ public class MockRecordReader implements RecordReader {
 
   @Override
   public int next() {
+    // allocate vv bytebuf
     int recordSetSize = Math.min(valueVectors[0].capacity(), this.config.getRecords()- recordsRead);
     recordsRead += recordSetSize;
     for(ValueVector.ValueVectorBase v : valueVectors){
+//      v.randomizeData();
       v.setRecordCount(recordSetSize);
     }
     return recordSetSize;

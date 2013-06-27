@@ -59,7 +59,7 @@ public class ImplCreator extends AbstractPhysicalVisitor<RecordBatch, FragmentCo
     
     if(scan instanceof MockScanPOP){
       return msc.getBatch(context, (MockScanPOP) scan, Collections.<RecordBatch> emptyList());
-    }else{
+    } else {
       return super.visitScan(scan, context);  
     }
     

@@ -147,8 +147,10 @@ public class DrillClient implements Closeable{
   
     public List<QueryResultBatch> getResults() throws RpcException{
       try{
+        logger.debug("waiting for results future");
         return future.get();
       }catch(Throwable t){
+        logger.debug("Caught exception while waiting for results future: " + t);
         throw RpcException.mapException(t);
       }
     }

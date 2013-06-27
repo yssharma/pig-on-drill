@@ -338,6 +338,7 @@ public class JSONRecordReader implements RecordReader {
         }
 
         private static <T> boolean addValueToVector(int index, VectorHolder holder, BufferAllocator allocator, T val, SchemaDefProtos.MinorType minorType) {
+            System.out.println("JSONRecordReader: Adding value to vector:  MinorType: " + minorType + ", Pos: " + index + ", Value: " + val);
             switch (minorType) {
                 case INT: {
                     holder.incAndCheckLength(32);
@@ -355,7 +356,7 @@ public class JSONRecordReader implements RecordReader {
                     if (val == null) {
                       float4.setNull(index);
                     } else {
-                      float4.set(index, (Integer) val);
+                      float4.set(index, (Float) val);
                     }
                     return holder.hasEnoughSpace(32);
                 }
@@ -372,17 +373,16 @@ public class JSONRecordReader implements RecordReader {
                         return holder.hasEnoughSpace(length);
                     }
                 }
-//                  TODO:
-//                case BOOLEAN: {
-//                    holder.incAndCheckLength(1);
-//                    NullableBit bit = (NullableBit) holder.getValueVector();
-//                    if (val == null) {
-//                        bit.setNull(index);
-//                    } else if ((Boolean) val) {
-//                        bit.set(index);
-//                    }
-//                    return holder.hasEnoughSpace(1);
-//                }
+                case BOOLEAN: {
+                    holder.incAndCheckLength(1);
+                    ValueVector.NullableBit bit = (ValueVector.NullableBit) holder.getValueVector();
+                    if (val == null) {
+                        bit.setNull(index);
+                    } else if ((Boolean) val) {
+                        bit.set(index, (Boolean) val);
+                    }
+                    return holder.hasEnoughSpace(1);
+                }
                 default:
                     throw new DrillRuntimeException("Type not supported to add value. Type: " + minorType);
             }
