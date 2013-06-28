@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class JSONRecordReaderTest {
+
     private static final Charset UTF_8 = Charset.forName("UTF-8");
 
     private String getResource(String resourceName) {

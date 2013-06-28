@@ -36,7 +36,7 @@ import com.google.common.io.Files;
 
 public class TestDistributedFragmentRun extends PopUnitTestBase{
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestDistributedFragmentRun.class);
-  
+  /*
   
   @Test 
   public void oneBitOneExchangeOneEntryRun() throws Exception{
@@ -93,4 +93,5 @@ public class TestDistributedFragmentRun extends PopUnitTestBase{
 
 
   }
+  */
 }
