@@ -100,7 +100,10 @@ public class UserServer extends BasicServer<RpcType, UserServer.UserClientConnec
     }
 
     public void sendResult(RpcOutcomeListener<Ack> listener, QueryWritableBatch result){
-      logger.debug("Sending result to client with {}", result);
+      logger.debug("Sending result to client with {}.  BUFFERS: {}", result, result.getBuffers());
+      for (ByteBuf buf: result.getBuffers()) {
+        logger.warn("Buffer: {} {}", buf.getChar(1), buf.getChar(2));
+      }
       send(listener, this, RpcType.QUERY_RESULT, result.getHeader(), Ack.class, result.getBuffers());
     }
 

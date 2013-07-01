@@ -94,9 +94,6 @@ public class WritableBatch {
         b.retain();
       }
       // allocate new buffer to release hold on old buffer.
-      // BB TODO: does apply() always replace the buffer?
-      // BB TODO: does this intentionally invalidate the valuevector?
-      // BB TODO: should this be destroyed by a factor?
       value.allocateNew(value.capacity());
     }
 

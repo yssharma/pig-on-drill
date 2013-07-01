@@ -55,6 +55,7 @@ public class TestSimpleFragmentRun extends PopUnitTestBase {
     int recordCount = 0;
     for (QueryResultBatch batch : results) {
       if(!batch.hasData()) continue;
+      logger.debug("Batch has results: {}", batch);
       boolean schemaChanged = batchLoader.load(batch.getHeader().getDef(), batch.getData());
       boolean firstColumn = true;
 
