@@ -142,10 +142,10 @@ public class ValueVector {
      */
     public void allocateNew(int totalBytes, ByteBuf sourceBuffer, int valueCount) {
       clear();
-      sourceBuffer.retain();
       this.recordCount = valueCount;
       this.totalBytes = totalBytes > 0 ? totalBytes : getSizeFromCount(valueCount);
-      this.data = sourceBuffer != null ? sourceBuffer : allocator.buffer(totalBytes);
+      this.data = (sourceBuffer != null) ? sourceBuffer : allocator.buffer(this.totalBytes);
+      this.data.retain();
     }
 
     /**
@@ -212,16 +212,30 @@ public class ValueVector {
      */
     @Override
     public int getSizeFromCount(int valueCount) {
-      return (int) Math.floor(valueCount / 8);
+      return (int) Math.ceil(valueCount / 8);
     }
 
     @Override
     public int getAllocatedSize() {
-      return (int) Math.ceil(recordCount / 8);
+      return totalBytes;
     }
 
     public MutableBit getMutable() {
       return (MutableBit)this;
+    }
+
+    /**
+     * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
+     *
+     * @param valueCount
+     *          The number of values which can be contained within this vector.
+     */
+    @Override
+    public void allocateNew(int valueCount) {
+      allocateNew(getSizeFromCount(valueCount), null, valueCount);
+      for (int i = 0; i < getSizeFromCount(valueCount); i++) {
+        data.setByte(i, 0);
+      }
     }
 
   }
@@ -246,17 +260,6 @@ public class ValueVector {
 
     public void set(int index, int value) {
       set(index, value != 0);
-    }
-
-    /**
-     * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
-     *
-     * @param valueCount
-     *          The number of values which can be contained within this vector.
-     */
-    @Override
-    public void allocateNew(int valueCount) {
-      allocateNew((int)Math.ceil(valueCount / 8), null, valueCount);
     }
 
     @Override
@@ -407,11 +410,11 @@ public class ValueVector {
   public static class ${minor.class} extends Base {
     static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}.class);
 
-    protected final UInt${type.width} lengthVector;
+    protected final MutableUInt${type.width} lengthVector;
 
     public ${minor.class}(MaterializedField field, BufferAllocator allocator) {
       super(field, allocator);
-      this.lengthVector = new UInt${type.width}(null, allocator);
+      this.lengthVector = new MutableUInt${type.width}(null, allocator);
     }
 
     public ByteBuf get(int index) {
@@ -484,13 +487,13 @@ public class ValueVector {
     public void set(int index, byte[] bytes) {
       checkArgument(index >= 0);
       if (index == 0) {
-        ((MutableUInt${type.width})lengthVector).set(0, 0);
-        ((MutableUInt${type.width})lengthVector).set(1, bytes.length);
+        lengthVector.set(0, 0);
+        lengthVector.set(1, bytes.length);
         data.setBytes(0, bytes);
       }
       else {
         int currentOffset = lengthVector.get(index);
-        ((MutableUInt${type.width})lengthVector).set(index + 1, currentOffset + bytes.length); // set the end offset of the buffer
+        lengthVector.set(index + 1, currentOffset + bytes.length); // set the end offset of the buffer
         data.setBytes(currentOffset, bytes);
       }
     }
@@ -514,11 +517,11 @@ public class ValueVector {
    */
   public static class Nullable${minor.class} extends Mutable${minor.class} {
 
-    protected Bit bits;
+    protected MutableBit bits;
 
     public Nullable${minor.class}(MaterializedField field, BufferAllocator allocator) {
       super(field, allocator);
-      bits = new Bit(null, allocator);
+      bits = new MutableBit(null, allocator);
     }
 
     /**
@@ -542,11 +545,11 @@ public class ValueVector {
     }
 
     public void setNull(int index) {
-      ((MutableBit)bits).set(index, false);
+      bits.set(index, false);
     }
 
     public void setNotNull(int index) {
-      ((MutableBit)bits).set(index, true);
+      bits.set(index, true);
     }
 
     public boolean isNull(int index) {
@@ -601,13 +604,13 @@ public class ValueVector {
 
   public static class Repeated${minor.class} extends Mutable${minor.class} {
 
-    private UInt4 countVector;    // number of repeated elements in each record
-    private UInt4 offsetVector;   // offsets to start of each record
+    private MutableUInt4 countVector;    // number of repeated elements in each record
+    private MutableUInt4 offsetVector;   // offsets to start of each record
 
     public Repeated${minor.class}(MaterializedField field, BufferAllocator allocator) {
       super(field, allocator);
-      countVector = new UInt4(null, allocator);
-      offsetVector = new UInt4(null, allocator);
+      countVector = new MutableUInt4(null, allocator);
+      offsetVector = new MutableUInt4(null, allocator);
     }
 
     public void allocateNew(int totalBytes, ByteBuf sourceBuffer, int valueCount) {
@@ -624,8 +627,8 @@ public class ValueVector {
                                <#elseif type.major == "Bit"> boolean
                                <#else> int
                                </#if> value) {
-      ((MutableUInt4)countVector).set(index, countVector.get(index) + 1);
-      ((MutableUInt4)offsetVector).set(index, offsetVector.get(index - 1) + countVector.get(index-1));
+      countVector.set(index, countVector.get(index) + 1);
+      offsetVector.set(index, offsetVector.get(index - 1) + countVector.get(index-1));
       super.set(offsetVector.get(index), value);
     }
 
