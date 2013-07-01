@@ -175,6 +175,7 @@ public class ValueVector {
      * @param recordCount Number of records active in this vector.
      */
     public void setRecordCount(int recordCount) {
+      data.writerIndex(getSizeFromCount(recordCount));
       this.recordCount = recordCount;
     }
 
@@ -204,6 +205,7 @@ public class ValueVector {
 
     @Override
     public Object getObject(int index) {
+      System.out.println("Getting bool: " + ((get(index) ? "true" : "false") + ", Boolean: " + new Boolean(get(index))));
       return new Boolean(get(index));
     }
 
@@ -247,14 +249,16 @@ public class ValueVector {
     }
 
     /**
-     * Set the element at the given index to the given value (1 == true, 0 == false).
+     * Set the element at the given index to the given value
      */
     public void set(int index, boolean value) {
       byte currentByte = data.getByte((int)Math.floor(index/8));
       if (value)
         currentByte |= (byte) Math.pow(2, (index % 8));
-      else
-        currentByte ^= (byte) Math.pow(2, (index % 8));
+      else if ((currentByte & (byte) Math.pow(2, (index % 8))) == (byte) Math.pow(2, (index % 8))) {
+        // only set bit to 0 if it was already set
+        currentByte -= (byte) Math.pow(2, (index % 8));
+      }
       data.setByte((int) Math.floor(index/8), currentByte);
     }
 
@@ -528,7 +532,7 @@ public class ValueVector {
      * Set the element at the given index to the given value.  Note that widths smaller than
      * 32-bits are handled by the ByteBuf interface.
      */
-    public void set(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#elseif type.major == "VarLen">byte[]<#else>int</#if> value) {
+    public void set(int index, <#if type.major == "VarLen">byte[]<#elseif (type.width < 4)>int<#else>${minor.javaType!type.javaType}</#if> value) {
       setNotNull(index);
       super.set(index, value);
     }

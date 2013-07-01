@@ -49,11 +49,11 @@ public class TestSimpleFragmentRun extends PopUnitTestBase {
     bit.run();
     client.connect();
     List<QueryResultBatch> results = client.runQuery(QueryType.PHYSICAL, Files.toString(FileUtils.getResourceAsFile("/physical_test2.json"), Charsets.UTF_8));
-    
     // look at records
     RecordBatchLoader batchLoader = new RecordBatchLoader(bit.getContext().getAllocator());
     int recordCount = 0;
     for (QueryResultBatch batch : results) {
+      System.out.println(" -- Processing batch: " + batch + "  -- ");
       if(!batch.hasData()) continue;
       logger.debug("Batch has results: {}", batch);
       boolean schemaChanged = batchLoader.load(batch.getHeader().getDef(), batch.getData());

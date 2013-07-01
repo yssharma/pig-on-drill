@@ -339,6 +339,7 @@ public class JSONRecordReader implements RecordReader {
 
         private static <T> boolean addValueToVector(int index, VectorHolder holder, BufferAllocator allocator, T val, SchemaDefProtos.MinorType minorType) {
             System.out.println("JSONRecordReader: Adding value to vector:  MinorType: " + minorType + ", Pos: " + index + ", Value: " + val);
+            System.out.println("JSONRecordReader: Holder type: " + holder.getValueVector().getClass().getName());
             switch (minorType) {
                 case INT: {
                     holder.incAndCheckLength(32);
@@ -354,9 +355,16 @@ public class JSONRecordReader implements RecordReader {
                     holder.incAndCheckLength(32);
                     ValueVector.NullableFloat4 float4 = (ValueVector.NullableFloat4) holder.getValueVector();
                     if (val == null) {
+                      System.out.println(" set null float4");
                       float4.setNull(index);
                     } else {
+                      System.out.println(" set float4 to " + (Float) val);
                       float4.set(index, (Float) val);
+                      try {
+                        System.out.println("JSONRR: FLOAT4: get(): " + float4.get(index));
+                      } catch(NullValueException n) {
+                        System.out.println("JSONRR: FLOAT4: get(): null: " + n);
+                      }
                     }
                     return holder.hasEnoughSpace(32);
                 }

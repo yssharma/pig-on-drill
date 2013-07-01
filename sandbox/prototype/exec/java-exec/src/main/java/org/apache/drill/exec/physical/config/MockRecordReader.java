@@ -98,6 +98,7 @@ public class MockRecordReader implements RecordReader {
     int recordSetSize = Math.min(valueVectors[0].capacity(), this.config.getRecords()- recordsRead);
     recordsRead += recordSetSize;
     for(ValueVector.Base v : valueVectors){
+      System.out.println("MockRecordReader:  Generating random data for VV of type " + v.getClass().getName());
       v.randomizeData();
       v.setRecordCount(recordSetSize);
     }
@@ -110,7 +111,7 @@ public class MockRecordReader implements RecordReader {
       try {
         output.removeField(valueVectors[i].getField().getFieldId());
       } catch (SchemaChangeException e) {
-        logger.warn("Failure while trying tremove field.", e);
+        logger.warn("Failure while trying to remove field.", e);
       }
       valueVectors[i].close();
     }
