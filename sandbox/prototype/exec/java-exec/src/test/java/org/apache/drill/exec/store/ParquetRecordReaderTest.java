@@ -79,7 +79,7 @@ public class ParquetRecordReaderTest {
     }
 
     @Test
-    public void testSameSchemaInSameBatch(@Injectable final FragmentContext context) throws IOException, ExecutionSetupException {
+    public void parquetTest(@Injectable final FragmentContext context) throws IOException, ExecutionSetupException {
         new Expectations() {
             {
                 context.getAllocator();

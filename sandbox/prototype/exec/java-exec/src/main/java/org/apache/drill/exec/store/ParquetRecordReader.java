@@ -154,7 +154,6 @@ public class ParquetRecordReader implements RecordReader {
         Page p = null;
         try {
             currentPage = parquetReader.readNextRowGroup();
-            currentPage = parquetReader.readNextRowGroup();
             MessageType schema = footer.getFileMetaData().getSchema();
             ColumnChunkMetaData column = footer.getBlocks().get(0).getColumns().get(0);
             ValueVector.ValueVectorBase vector;
@@ -176,22 +175,45 @@ public class ParquetRecordReader implements RecordReader {
                 case FIXED_LEN_BYTE_ARRAY:
                     break;
             }
-
-            p = currentPage.getPageReader(schema.getColumnDescription(column.getPath())).readPage();
             MaterializedField f = MaterializedField.create(new SchemaPath(join(System.getProperty(
                     "file.separator"), column.getPath())), 2, 1, JacksonHelper.INT_TYPE);
             ValueVector.NullableInt vec = (ValueVector.NullableInt) TypeHelper.getNewVector(f, allocator);
-            vec.allocateNew(50);
+            vec.allocateNew(30);
+
+            p = currentPage.getPageReader(schema.getColumnDescription(column.getPath())).readPage();
 
             currBytes = p.getBytes();
             vec.data.writeBytes(currBytes.toByteArray());
 
-            vec.setNotNull(0);
-            vec.setNotNull(1);
-            vec.setNotNull(2);
-            vec.setNotNull(3);
+            String s = "";
+            for (int i = 0; i < 8; i++){
+                vec.setNotNull(i);
+                s += " " + vec.get(i);
+            }
 
-            throw new RuntimeException(vec.get(0) + " " + vec.get(1) + " " + vec.get(2) + " " + vec.get(3));
+            p = currentPage.getPageReader(schema.getColumnDescription(column.getPath())).readPage();
+
+            currBytes = p.getBytes();
+            vec.data.writeBytes(currBytes.toByteArray());
+
+            s += ", ";
+            for (int i = 0; i < 8; i++){
+                vec.setNotNull(i);
+                s += " " + vec.get(i);
+            }
+
+            p = currentPage.getPageReader(schema.getColumnDescription(column.getPath())).readPage();
+
+            currBytes = p.getBytes();
+            vec.data.writeBytes(currBytes.toByteArray());
+
+            s += ", ";
+            for (int i = 0; i < 8; i++){
+                vec.setNotNull(i);
+                s += " " + vec.get(i);
+            }
+
+            throw new RuntimeException(s);
 
         } catch (IOException e) {
             e.printStackTrace();
