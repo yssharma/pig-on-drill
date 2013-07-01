@@ -34,7 +34,7 @@ public class TestValueVector {
         MaterializedField field = MaterializedField.create(defBuilder.build());
 
     // Create a new value vector for 1024 integers
-    ValueVector.UInt4 v = new ValueVector.UInt4(field, allocator);
+    ValueVector.MutableUInt4 v = new ValueVector.MutableUInt4(field, allocator);
     v.allocateNew(1024);
 
     // Put and set a few values

@@ -62,7 +62,7 @@ public class TestSimpleFragmentRun extends PopUnitTestBase {
       // print headers.
       if (schemaChanged) {
         System.out.println("\n\n========NEW SCHEMA=========\n\n");
-        for (IntObjectCursor<ValueVector.ValueVectorBase> v : batchLoader) {
+        for (IntObjectCursor<ValueVector.Base> v : batchLoader) {
 
           if (firstColumn) {
             firstColumn = false;
@@ -81,7 +81,7 @@ public class TestSimpleFragmentRun extends PopUnitTestBase {
       for (int i = 0; i < batchLoader.getRecordCount(); i++) {
         boolean first = true;
         recordCount++;
-        for (IntObjectCursor<ValueVector.ValueVectorBase> v : batchLoader) {
+        for (IntObjectCursor<ValueVector.Base> v : batchLoader) {
           if (first) {
             first = false;
           } else {

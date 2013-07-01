@@ -67,14 +67,14 @@ public class WritableBatch {
 //  }
 //  
   
-  public static WritableBatch get(int recordCount, IntObjectOpenHashMap<ValueVector.ValueVectorBase> fields){
+  public static WritableBatch get(int recordCount, IntObjectOpenHashMap<ValueVector.Base> fields){
     WritableCreator creator = new WritableCreator(recordCount);
     fields.forEach(creator);
     return creator.get();
     
   }
   
-  private static class WritableCreator implements IntObjectProcedure<ValueVector.ValueVectorBase>{
+  private static class WritableCreator implements IntObjectProcedure<ValueVector.Base>{
     
     List<ByteBuf> buffers = Lists.newArrayList();
     List<FieldMetadata> metadata = Lists.newArrayList();
@@ -87,7 +87,7 @@ public class WritableBatch {
     }
     
     @Override
-    public void apply(int key, ValueVector.ValueVectorBase value) {
+    public void apply(int key, ValueVector.Base value) {
       metadata.add(value.getMetadata());
       for(ByteBuf b : value.getBuffers()){
         buffers.add(b);

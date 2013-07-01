@@ -68,7 +68,7 @@ public class WireRecordBatch implements RecordBatch{
   }
 
   @Override
-  public <T extends ValueVector.ValueVectorBase> T getValueVector(int fieldId, Class<T> clazz) throws InvalidValueAccessor {
+  public <T extends ValueVector.Base> T getValueVector(int fieldId, Class<T> clazz) throws InvalidValueAccessor {
     return batchLoader.getValueVector(fieldId, clazz);
   }
 
