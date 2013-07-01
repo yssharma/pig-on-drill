@@ -18,76 +18,90 @@
 package org.apache.drill.exec.store;
 
 import com.carrotsearch.hppc.IntObjectOpenHashMap;
+import com.carrotsearch.hppc.cursors.ObjectCursor;
 import com.google.common.base.Charsets;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.Resources;
+import io.netty.buffer.ByteBuf;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.impl.OutputMutator;
+import org.apache.drill.exec.proto.SchemaDefProtos;
+import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.vector.TypeHelper;
+import org.apache.drill.exec.record.vector.ValueVector;
 import org.apache.drill.exec.schema.*;
+import org.apache.drill.exec.schema.json.jackson.JacksonHelper;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import parquet.bytes.BytesInput;
 import parquet.column.ColumnDescriptor;
+import parquet.column.page.Page;
 import parquet.column.page.PageReadStore;
-import parquet.hadoop.CodecFactory;
 import parquet.hadoop.Footer;
 import parquet.hadoop.ParquetFileReader;
 import parquet.hadoop.metadata.BlockMetaData;
+import parquet.hadoop.metadata.ColumnChunkMetaData;
+import parquet.hadoop.metadata.ParquetMetadata;
+import parquet.schema.MessageType;
+import parquet.schema.PrimitiveType;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class ParquetRecordReader implements RecordReader {
     static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(JSONRecordReader.class);
     private static final int DEFAULT_LENGTH = 256 * 1024; // 256kb
 
 
-    // from JASONRecordReader
+    // from JSONRecordReader
     private final String inputPath;
 
     private final IntObjectOpenHashMap<VectorHolder> valueVectorMap;
 
     private ParquetFileReader parquetReader;
     private PageReadStore currentPage;
-    List<Footer> footers;
 
 
     private SchemaIdGenerator generator;
     // would only need this to compare schemas of different row groups
     private DiffSchema diffSchema;
     private RecordSchema currentSchema;
+    //List<Footer> footers;
+    //Iterator<Footer> footerIter;
+    ParquetMetadata footer;
+    BytesInput currBytes;
 
     private List<Field> removedFields;
     private OutputMutator outputMutator;
     private BufferAllocator allocator;
     private int batchSize;
 
+
+    public ParquetRecordReader(FragmentContext fragmentContext, String inputPath,
+                               ParquetFileReader reader, ParquetMetadata footer) {
+        this(fragmentContext, inputPath, DEFAULT_LENGTH, reader, footer);
+    }
+
+
     public ParquetRecordReader(FragmentContext fragmentContext, String inputPath, int batchSize,
-            List<BlockMetaData> blocks, List<ColumnDescriptor> columns, Configuration configuration) throws IOException {
+                               ParquetFileReader reader, ParquetMetadata footer) {
         this.inputPath = inputPath;
         this.allocator = fragmentContext.getAllocator();
         this.batchSize = batchSize;
+        this.footer = footer;
         valueVectorMap = new IntObjectOpenHashMap<>();
 
-        Path filePath = new Path(inputPath);
-        FileSystem fileSystem = filePath.getFileSystem(configuration);
-        footers = ParquetFileReader.readFooters(configuration, fileSystem.getFileStatus(filePath));
-
-        parquetReader = new ParquetFileReader(configuration, filePath, blocks, columns);
-        for (Footer footer : footers){
-
-
-        }
+        parquetReader = reader;
     }
 
     @Override
@@ -109,17 +123,97 @@ public class ParquetRecordReader implements RecordReader {
         generator = new SchemaIdGenerator();
     }
 
+    private void resetBatch() {
+        for (ObjectCursor<VectorHolder> holder : valueVectorMap.values()) {
+            holder.value.reset();
+        }
+
+        currentSchema.resetMarkedFields();
+        diffSchema.reset();
+        removedFields.clear();
+    }
+
+    private VectorHolder getOrCreateVectorHolder(Field field, int parentFieldId) throws SchemaChangeException {
+        if (!valueVectorMap.containsKey(field.getFieldId())) {
+            SchemaDefProtos.MajorType type = field.getFieldType();
+            int fieldId = field.getFieldId();
+            MaterializedField f = MaterializedField.create(new SchemaPath(field.getFieldName()), fieldId, parentFieldId, type);
+            ValueVector.ValueVectorBase v = TypeHelper.getNewVector(f, allocator);
+            v.allocateNew(batchSize);
+            VectorHolder holder = new VectorHolder(batchSize, v);
+            valueVectorMap.put(fieldId, holder);
+            outputMutator.addField(fieldId, v);
+            return holder;
+        }
+        return valueVectorMap.lget();
+    }
+
     @Override
     public int next() {
+        resetBatch();
+        Page p = null;
         try {
             currentPage = parquetReader.readNextRowGroup();
+            currentPage = parquetReader.readNextRowGroup();
+            MessageType schema = footer.getFileMetaData().getSchema();
+            ColumnChunkMetaData column = footer.getBlocks().get(0).getColumns().get(0);
+            ValueVector.ValueVectorBase vector;
+            switch (column.getType()) {
+                case BINARY:
+                    break;
+                case INT64:
+                    break;
+                case INT32:
+                    break;
+                case BOOLEAN:
+                    break;
+                case FLOAT:
+                    break;
+                case DOUBLE:
+                    break;
+                case INT96:
+                    break;
+                case FIXED_LEN_BYTE_ARRAY:
+                    break;
+            }
 
-            currentPage.getPageReader().readPage().getBytes();
+            p = currentPage.getPageReader(schema.getColumnDescription(column.getPath())).readPage();
+            MaterializedField f = MaterializedField.create(new SchemaPath(join(System.getProperty(
+                    "file.separator"), column.getPath())), 2, 1, JacksonHelper.INT_TYPE);
+            ValueVector.NullableInt vec = (ValueVector.NullableInt) TypeHelper.getNewVector(f, allocator);
+            vec.allocateNew(50);
+
+            currBytes = p.getBytes();
+            vec.data.writeBytes(currBytes.toByteArray());
+
+            vec.setNotNull(0);
+            vec.setNotNull(1);
+            vec.setNotNull(2);
+            vec.setNotNull(3);
+
+            throw new RuntimeException(vec.get(0) + " " + vec.get(1) + " " + vec.get(2) + " " + vec.get(3));
 
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return 0;
+        return p.getValueCount();
+    }
+
+    private void recordNewField(Field field) {
+        diffSchema.recordNewField(field);
+    }
+
+    static String join(String delimiter, String... str) {
+        StringBuilder builder = new StringBuilder();
+        int i = 0;
+        for (String s : str){
+            builder.append(s);
+            if ( i < str.length){
+                builder.append(delimiter);
+            }
+            i++;
+        }
+        return builder.toString();
     }
 
     @Override

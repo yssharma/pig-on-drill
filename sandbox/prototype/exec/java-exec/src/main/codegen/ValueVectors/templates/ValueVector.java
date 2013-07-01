@@ -46,7 +46,7 @@ public class ValueVector {
     static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ValueVectorBase.class);
 
     protected final BufferAllocator allocator;
-    protected ByteBuf data = DeadBuf.DEAD_BUFFER;
+    public ByteBuf data = DeadBuf.DEAD_BUFFER;
     protected MaterializedField field;
     protected int recordCount;
     protected int totalBytes;
