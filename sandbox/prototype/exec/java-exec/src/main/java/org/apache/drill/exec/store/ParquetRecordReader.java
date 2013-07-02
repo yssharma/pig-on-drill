@@ -177,7 +177,8 @@ public class ParquetRecordReader implements RecordReader {
             }
             MaterializedField f = MaterializedField.create(new SchemaPath(join(System.getProperty(
                     "file.separator"), column.getPath())), 2, 1, JacksonHelper.INT_TYPE);
-            ValueVector.NullableInt vec = (ValueVector.NullableInt) TypeHelper.getNewVector(f, allocator);
+            //ValueVector.NullableInt vec = (ValueVector.NullableInt) TypeHelper.getNewVector(f, allocator);
+            ValueVector.NullableUInt8 vec = new ValueVector.NullableUInt8(f, allocator);
             vec.allocateNew(30);
 
             p = currentPage.getPageReader(schema.getColumnDescription(column.getPath())).readPage();
@@ -202,16 +203,16 @@ public class ParquetRecordReader implements RecordReader {
                 s += " " + vec.get(i);
             }
 
-            p = currentPage.getPageReader(schema.getColumnDescription(column.getPath())).readPage();
-
-            currBytes = p.getBytes();
-            vec.data.writeBytes(currBytes.toByteArray());
-
-            s += ", ";
-            for (int i = 0; i < 8; i++){
-                vec.setNotNull(i);
-                s += " " + vec.get(i);
-            }
+//            p = currentPage.getPageReader(schema.getColumnDescription(column.getPath())).readPage();
+//
+//            currBytes = p.getBytes();
+//            vec.data.writeBytes(currBytes.toByteArray());
+//
+//            s += ", ";
+//            for (int i = 0; i < 8; i++){
+//                vec.setNotNull(i);
+//                s += " " + vec.get(i);
+//            }
 
             throw new RuntimeException(s);
 
