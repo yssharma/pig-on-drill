@@ -229,31 +229,31 @@ public class TestValueVector {
     v.allocateNew(1024);
 
     // Put and set a few values
-    v.set(0, true);
-    v.set(1, false);
-    v.set(100, false);
-    v.set(1022, true);
-    assertEquals(true, v.get(0));
-    assertEquals(false, v.get(1));
-    assertEquals(false, v.get(100));
-    assertEquals(true, v.get(1022));
+    v.set(0, 1);
+    v.set(1, 0);
+    v.set(100, 0);
+    v.set(1022, 1);
+    assertEquals(1, v.get(0));
+    assertEquals(0, v.get(1));
+    assertEquals(0, v.get(100));
+    assertEquals(1, v.get(1022));
 
     // test setting the same value twice
-    v.set(0, true);
-    v.set(0, true);
-    v.set(1, false);
-    v.set(1, false);
-    assertEquals(true, v.get(0));
-    assertEquals(false, v.get(1));
+    v.set(0, 1);
+    v.set(0, 1);
+    v.set(1, 0);
+    v.set(1, 0);
+    assertEquals(1, v.get(0));
+    assertEquals(0, v.get(1));
 
     // test toggling the values
-    v.set(0, false);
-    v.set(1, true);
-    assertEquals(false, v.get(0));
-    assertEquals(true, v.get(1));
+    v.set(0, 0);
+    v.set(1, 1);
+    assertEquals(0, v.get(0));
+    assertEquals(1, v.get(1));
     
-    // Ensure unallocated space returns false
-    assertEquals(false, v.get(3));
+    // Ensure unallocated space returns 0
+    assertEquals(0, v.get(3));
   }
   
 }

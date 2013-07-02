@@ -194,20 +194,19 @@ public class ValueVector {
       super(field, allocator);
     }
 
-    public boolean get(int index) {
+    public int get(int index) {
       logger.warn("BIT GET: index: {}, byte: {}, mask: {}, masked byte: {}",
                   index,
                   data.getByte((int)Math.floor(index/8)),
                   (int)Math.pow(2, (index % 8)),
                   data.getByte((int)Math.floor(index/8)) & (int)Math.pow(2, (index % 8)));
 
-      return (data.getByte((int)Math.floor(index/8)) & (int)Math.pow(2, (index % 8))) != 0;
+      return ((data.getByte((int)Math.floor(index/8)) & (int)Math.pow(2, (index % 8))) == 0) ? 0 : 1;
     }
 
     @Override
     public Object getObject(int index) {
-      System.out.println("Getting bool: " + ((get(index) ? "true" : "false") + ", Boolean: " + new Boolean(get(index))));
-      return new Boolean(get(index));
+      return new Boolean(get(index) != 0);
     }
 
     /**
@@ -250,14 +249,16 @@ public class ValueVector {
     }
 
     /**
-     * Set the element at the given index to the given value
+     * Set the bit at the given index to the specified value
      */
     public void set(int index, int value) {
       byte currentByte = data.getByte((int)Math.floor(index/8));
-      if (value)
+      if (value != 0) {
+        // true
         currentByte |= (byte) Math.pow(2, (index % 8));
+      }
       else if ((currentByte & (byte) Math.pow(2, (index % 8))) == (byte) Math.pow(2, (index % 8))) {
-        // only set bit to 0 if it was already set
+        // false, and bit was previously set
         currentByte -= (byte) Math.pow(2, (index % 8));
       }
       data.setByte((int) Math.floor(index/8), currentByte);
@@ -547,16 +548,16 @@ public class ValueVector {
 
     // TODO: make private
     public void setNull(int index) {
-      bits.set(index, false);
+      bits.set(index, 0);
     }
 
     // TODO: make private
     public void setNotNull(int index) {
-      bits.set(index, true);
+      bits.set(index, 1);
     }
 
     public boolean isNull(int index) {
-      return !bits.get(index);
+      return bits.get(index) == 0;
     }
 
     /**
@@ -627,7 +628,6 @@ public class ValueVector {
      */
     public void add(int index, <#if (type.width > 4)> ${minor.javaType!type.javaType}
                                <#elseif type.major == "VarLen"> byte[]
-                               <#elseif type.major == "Bit"> boolean
                                <#else> int
                                </#if> value) {
       countVector.set(index, countVector.get(index) + 1);
