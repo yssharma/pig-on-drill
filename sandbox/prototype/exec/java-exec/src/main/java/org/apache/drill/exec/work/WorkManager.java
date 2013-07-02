@@ -114,7 +114,6 @@ public class WorkManager implements Closeable{
     }
     
     public void startFragmentPendingRemote(IncomingFragmentHandler handler){
-      System.out.println("Start fragment pending remote: " + handler);
       incomingFragments.remove(handler);
       pendingTasks.add(handler.getRunnable());
     }

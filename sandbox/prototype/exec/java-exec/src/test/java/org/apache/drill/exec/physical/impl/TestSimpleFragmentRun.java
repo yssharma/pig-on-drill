@@ -53,9 +53,7 @@ public class TestSimpleFragmentRun extends PopUnitTestBase {
     RecordBatchLoader batchLoader = new RecordBatchLoader(bit.getContext().getAllocator());
     int recordCount = 0;
     for (QueryResultBatch batch : results) {
-      System.out.println(" -- Processing batch: " + batch + "  -- ");
       if(!batch.hasData()) continue;
-      logger.debug("Batch has results: {}", batch);
       boolean schemaChanged = batchLoader.load(batch.getHeader().getDef(), batch.getData());
       boolean firstColumn = true;
 

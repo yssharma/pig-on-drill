@@ -57,7 +57,7 @@ public class RecordBatchLoader implements Iterable<IntObjectCursor<ValueVector.B
    * @throws SchemaChangeException 
    */
   public boolean load(RecordBatchDef def, ByteBuf buf) throws SchemaChangeException {
-    logger.debug("Loading record batch with def {} and data {}", def, buf);
+//    logger.debug("Loading record batch with def {} and data {}", def, buf);
     this.recordCount = def.getRecordCount();
     boolean schemaChanged = false;
     

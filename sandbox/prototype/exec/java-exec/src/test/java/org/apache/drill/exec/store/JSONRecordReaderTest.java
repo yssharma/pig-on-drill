@@ -71,9 +71,6 @@ public class JSONRecordReaderTest {
         }
 
         T val = (T) valueVector.getObject(index);
-        System.out.println("val: " + val  + "valueVector: " + valueVector + " getObject: " + valueVector.getObject(index));
-        System.out.println("Type of VV object: " + ((val != null) ? val.getClass().getName() : "NULL"));
-        System.out.println(" from vv type: " + valueVector.getClass().getName());
         if (val instanceof byte[]) {
             assertTrue(Arrays.equals((byte[]) value, (byte[]) val));
         } else {
