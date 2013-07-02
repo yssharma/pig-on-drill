@@ -26,6 +26,7 @@ import com.google.common.io.Files;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.Resources;
 import io.netty.buffer.ByteBuf;
+import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.exception.SchemaChangeException;
@@ -59,7 +60,7 @@ import java.io.InputStreamReader;
 import java.util.*;
 
 public class ParquetRecordReader implements RecordReader {
-    static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(JSONRecordReader.class);
+    static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ParquetRecordReader.class);
     private static final int DEFAULT_LENGTH = 256 * 1024; // 256kb
 
 
@@ -71,20 +72,17 @@ public class ParquetRecordReader implements RecordReader {
     private ParquetFileReader parquetReader;
     private PageReadStore currentPage;
 
-
     private SchemaIdGenerator generator;
     // would only need this to compare schemas of different row groups
-    private DiffSchema diffSchema;
-    private RecordSchema currentSchema;
     //List<Footer> footers;
     //Iterator<Footer> footerIter;
     ParquetMetadata footer;
     BytesInput currBytes;
 
-    private List<Field> removedFields;
     private OutputMutator outputMutator;
     private BufferAllocator allocator;
     private int batchSize;
+    private MessageType schema;
 
 
     public ParquetRecordReader(FragmentContext fragmentContext, String inputPath,
@@ -107,18 +105,7 @@ public class ParquetRecordReader implements RecordReader {
     @Override
     public void setup(OutputMutator output) throws ExecutionSetupException {
         outputMutator = output;
-        currentSchema = new ObjectSchema();
-        diffSchema = new DiffSchema();
-        removedFields = Lists.newArrayList();
-
-        InputSupplier<InputStreamReader> input;
-        if (inputPath.startsWith("resource:")) {
-            input = Resources.newReaderSupplier(Resources.getResource(inputPath.substring("resource:".length())), Charsets.UTF_8);
-        } else {
-            input = Files.newReaderSupplier(new File(inputPath), Charsets.UTF_8);
-        }
-
-
+        schema = footer.getFileMetaData().getSchema();
 
         generator = new SchemaIdGenerator();
     }
@@ -127,10 +114,6 @@ public class ParquetRecordReader implements RecordReader {
         for (ObjectCursor<VectorHolder> holder : valueVectorMap.values()) {
             holder.value.reset();
         }
-
-        currentSchema.resetMarkedFields();
-        diffSchema.reset();
-        removedFields.clear();
     }
 
     private VectorHolder getOrCreateVectorHolder(Field field, int parentFieldId) throws SchemaChangeException {
@@ -152,86 +135,76 @@ public class ParquetRecordReader implements RecordReader {
     public int next() {
         resetBatch();
         Page p = null;
+        int valueCount = 0;
         try {
             currentPage = parquetReader.readNextRowGroup();
-            MessageType schema = footer.getFileMetaData().getSchema();
+            if(currentPage == null) {
+                return 0;
+            }
             ColumnChunkMetaData column = footer.getBlocks().get(0).getColumns().get(0);
             ValueVector.ValueVectorBase vector;
-            switch (column.getType()) {
-                case BINARY:
-                    break;
-                case INT64:
-                    break;
-                case INT32:
-                    break;
-                case BOOLEAN:
-                    break;
-                case FLOAT:
-                    break;
-                case DOUBLE:
-                    break;
-                case INT96:
-                    break;
-                case FIXED_LEN_BYTE_ARRAY:
-                    break;
-            }
+            SchemaDefProtos.MajorType majorType = toMajorType(column.getType());
             MaterializedField f = MaterializedField.create(new SchemaPath(join(System.getProperty(
-                    "file.separator"), column.getPath())), 2, 1, JacksonHelper.INT_TYPE);
+                    "file.separator"), column.getPath())), 1, 0, majorType);
             //ValueVector.NullableInt vec = (ValueVector.NullableInt) TypeHelper.getNewVector(f, allocator);
             ValueVector.NullableUInt8 vec = new ValueVector.NullableUInt8(f, allocator);
             vec.allocateNew(30);
-
+            outputMutator.addField(1, vec);
             p = currentPage.getPageReader(schema.getColumnDescription(column.getPath())).readPage();
-
-            currBytes = p.getBytes();
-            vec.data.writeBytes(currBytes.toByteArray());
-
             String s = "";
-            for (int i = 0; i < 8; i++){
-                vec.setNotNull(i);
-                s += " " + vec.get(i);
+            while (p != null) {
+                currBytes = p.getBytes();
+                vec.data.writeBytes(currBytes.toByteArray());
+
+                for (int i = 0; i < 8; i++) {
+                    vec.setNotNull(i);
+                    s += " " + vec.get(i);
+                }
+                valueCount += p.getValueCount();
+                p = currentPage.getPageReader(schema.getColumnDescription(column.getPath())).readPage();
+
             }
 
-            p = currentPage.getPageReader(schema.getColumnDescription(column.getPath())).readPage();
-
-            currBytes = p.getBytes();
-            vec.data.writeBytes(currBytes.toByteArray());
-
-            s += ", ";
-            for (int i = 0; i < 8; i++){
-                vec.setNotNull(i);
-                s += " " + vec.get(i);
-            }
-
-//            p = currentPage.getPageReader(schema.getColumnDescription(column.getPath())).readPage();
-//
-//            currBytes = p.getBytes();
-//            vec.data.writeBytes(currBytes.toByteArray());
-//
-//            s += ", ";
-//            for (int i = 0; i < 8; i++){
-//                vec.setNotNull(i);
-//                s += " " + vec.get(i);
-//            }
-
-            throw new RuntimeException(s);
+            logger.warn(s);
 
         } catch (IOException e) {
+            throw new DrillRuntimeException(e);
+        } catch (SchemaChangeException e) {
             e.printStackTrace();
         }
-        return p.getValueCount();
+
+        return valueCount;
     }
 
-    private void recordNewField(Field field) {
-        diffSchema.recordNewField(field);
+    static SchemaDefProtos.MajorType toMajorType(PrimitiveType.PrimitiveTypeName primitiveTypeName) {
+        switch (primitiveTypeName) {
+            //case BINARY:
+            //    break;
+            case INT64:
+                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.BIGINT).build();
+            case INT32:
+                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.INT).build();
+            case BOOLEAN:
+                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.BOOLEAN).build();
+            case FLOAT:
+                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.FLOAT4).build();
+            case DOUBLE:
+                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.FLOAT8).build();
+            //case INT96:
+            //    break;
+            //case FIXED_LEN_BYTE_ARRAY:
+            //    break;
+            default:
+                throw new UnsupportedOperationException("Type not supported: " + primitiveTypeName);
+        }
     }
 
     static String join(String delimiter, String... str) {
         StringBuilder builder = new StringBuilder();
         int i = 0;
-        for (String s : str){
+        for (String s : str) {
             builder.append(s);
-            if ( i < str.length){
+            if (i < str.length) {
                 builder.append(delimiter);
             }
             i++;
