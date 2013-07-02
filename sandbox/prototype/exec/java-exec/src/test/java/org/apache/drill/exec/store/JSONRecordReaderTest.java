@@ -71,7 +71,7 @@ public class JSONRecordReaderTest {
         }
 
         T val = (T) valueVector.getObject(index);
-        System.out.println("val: " + val  + "valueVector: " + valueVector);
+        System.out.println("val: " + val  + "valueVector: " + valueVector + " getObject: " + valueVector.getObject(index));
         System.out.println("Type of VV object: " + ((val != null) ? val.getClass().getName() : "NULL"));
         System.out.println(" from vv type: " + valueVector.getClass().getName());
         if (val instanceof byte[]) {
@@ -97,10 +97,10 @@ public class JSONRecordReaderTest {
         assertEquals(2, jr.next());
         assertEquals(3, addFields.size());
         assertField(addFields.get(0), 0, SchemaDefProtos.MinorType.INT, 123, "test");
-        assertField(addFields.get(1), 0, SchemaDefProtos.MinorType.BOOLEAN, 1, "b");
+        assertField(addFields.get(1), 0, SchemaDefProtos.MinorType.BOOLEAN, true, "b");
         assertField(addFields.get(2), 0, SchemaDefProtos.MinorType.VARCHAR4, "hi!".getBytes(UTF_8), "c");
         assertField(addFields.get(0), 1, SchemaDefProtos.MinorType.INT, 1234, "test");
-        assertField(addFields.get(1), 1, SchemaDefProtos.MinorType.BOOLEAN, 0, "b");
+        assertField(addFields.get(1), 1, SchemaDefProtos.MinorType.BOOLEAN, false, "b");
         assertField(addFields.get(2), 1, SchemaDefProtos.MinorType.VARCHAR4, "drill!".getBytes(UTF_8), "c");
 
         assertEquals(0, jr.next());
@@ -164,14 +164,14 @@ public class JSONRecordReaderTest {
         assertField(addFields.get(0), 0, SchemaDefProtos.MinorType.INT, 123, "test");
         assertField(addFields.get(1), 0, SchemaDefProtos.MinorType.INT, 1, "b");
         assertField(addFields.get(2), 0, SchemaDefProtos.MinorType.FLOAT4, (float) 2.15, "c");
-        assertField(addFields.get(3), 0, SchemaDefProtos.MinorType.BOOLEAN, 1, "bool");
+        assertField(addFields.get(3), 0, SchemaDefProtos.MinorType.BOOLEAN, true, "bool");
         assertField(addFields.get(4), 0, SchemaDefProtos.MinorType.VARCHAR4, "test1".getBytes(UTF_8), "str1");
         assertTrue(removedFields.isEmpty());
         assertEquals(1, jr.next());
         assertEquals(6, addFields.size());
         assertField(addFields.get(0), 0, SchemaDefProtos.MinorType.INT, 1234, "test");
         assertField(addFields.get(1), 0, SchemaDefProtos.MinorType.INT, 3, "b");
-        assertField(addFields.get(3), 0, SchemaDefProtos.MinorType.BOOLEAN, 0, "bool");
+        assertField(addFields.get(3), 0, SchemaDefProtos.MinorType.BOOLEAN, false, "bool");
         assertField(addFields.get(4), 0, SchemaDefProtos.MinorType.VARCHAR4, "test2".getBytes(UTF_8), "str1");
         assertField(addFields.get(5), 0, SchemaDefProtos.MinorType.INT, 4, "d");
         assertEquals(1, removedFields.size());
@@ -180,7 +180,7 @@ public class JSONRecordReaderTest {
         assertEquals(1, jr.next());
         assertEquals(8, addFields.size()); // The reappearing of field 'c' is also included
         assertField(addFields.get(0), 0, SchemaDefProtos.MinorType.INT, 12345, "test");
-        assertField(addFields.get(3), 0, SchemaDefProtos.MinorType.BOOLEAN, 1, "bool");
+        assertField(addFields.get(3), 0, SchemaDefProtos.MinorType.BOOLEAN, true, "bool");
         assertField(addFields.get(5), 0, SchemaDefProtos.MinorType.INT, 6, "d");
         assertField(addFields.get(6), 0, SchemaDefProtos.MinorType.FLOAT4, (float) 5.16, "c");
         assertField(addFields.get(7), 0, SchemaDefProtos.MinorType.VARCHAR4, "test3".getBytes(UTF_8), "str2");

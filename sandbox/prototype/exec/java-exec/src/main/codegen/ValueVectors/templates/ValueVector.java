@@ -146,6 +146,7 @@ public class ValueVector {
       this.totalBytes = totalBytes > 0 ? totalBytes : getSizeFromCount(valueCount);
       this.data = (sourceBuffer != null) ? sourceBuffer : allocator.buffer(this.totalBytes);
       this.data.retain();
+      data.readerIndex(0);
     }
 
     /**
@@ -251,7 +252,7 @@ public class ValueVector {
     /**
      * Set the element at the given index to the given value
      */
-    public void set(int index, boolean value) {
+    public void set(int index, int value) {
       byte currentByte = data.getByte((int)Math.floor(index/8));
       if (value)
         currentByte |= (byte) Math.pow(2, (index % 8));
@@ -260,10 +261,6 @@ public class ValueVector {
         currentByte -= (byte) Math.pow(2, (index % 8));
       }
       data.setByte((int) Math.floor(index/8), currentByte);
-    }
-
-    public void set(int index, int value) {
-      set(index, value != 0);
     }
 
     @Override
@@ -548,10 +545,12 @@ public class ValueVector {
       return super.get(index);
     }
 
+    // TODO: make private
     public void setNull(int index) {
       bits.set(index, false);
     }
 
+    // TODO: make private
     public void setNotNull(int index) {
       bits.set(index, true);
     }
@@ -580,8 +579,8 @@ public class ValueVector {
      * Get the size requirement (in bytes) for the given number of values.  Only accurate
      * for fixed width value vectors.
      */
-    public int getSizeFromCount(int valueCount) {
-      return valueCount * ${type.width} + (valueCount / 8);
+    public int getTotalSizeFromCount(int valueCount) {
+      return getSizeFromCount(valueCount) + bits.getSizeFromCount(valueCount);
     }
 
     @Override
@@ -649,8 +648,10 @@ public class ValueVector {
      * Get the size requirement (in bytes) for the given number of values.  Only accurate
      * for fixed width value vectors.
      */
-    public int getSizeFromCount(int valueCount) {
-      return valueCount * ${type.width} + (valueCount * <#if (type.width > 4)>4<#else>${type.width}</#if>);
+    public int getTotalSizeFromCount(int valueCount) {
+      return getSizeFromCount(valueCount) +
+             countVector.getSizeFromCount(valueCount) +
+             offsetVector.getSizeFromCount(valueCount);
     }
 
     /**

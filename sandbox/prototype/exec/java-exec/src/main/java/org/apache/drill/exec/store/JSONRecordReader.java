@@ -384,10 +384,8 @@ public class JSONRecordReader implements RecordReader {
                 case BOOLEAN: {
                     holder.incAndCheckLength(1);
                     ValueVector.NullableBit bit = (ValueVector.NullableBit) holder.getValueVector();
-                    if (val == null) {
-                        bit.setNull(index);
-                    } else if ((Boolean) val) {
-                        bit.set(index, (Boolean) val);
+                    if (val != null) {
+                        bit.set(index, (Boolean)val ? 1 : 0);
                     }
                     return holder.hasEnoughSpace(1);
                 }
