@@ -178,7 +178,7 @@ public class ParquetRecordReader implements RecordReader {
             MaterializedField f = MaterializedField.create(new SchemaPath(join(System.getProperty(
                     "file.separator"), column.getPath())), 2, 1, JacksonHelper.INT_TYPE);
             //ValueVector.NullableInt vec = (ValueVector.NullableInt) TypeHelper.getNewVector(f, allocator);
-            ValueVector.NullableUInt8 vec = new ValueVector.NullableUInt8(f, allocator);
+            ValueVector.NullableUInt1 vec = new ValueVector.NullableUInt1(f, allocator);
             vec.allocateNew(30);
 
             p = currentPage.getPageReader(schema.getColumnDescription(column.getPath())).readPage();
