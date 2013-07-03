@@ -26,18 +26,17 @@ public class NamedField extends Field {
     final SchemaDefProtos.MajorType keyType;
     String fieldName;
 
-    public NamedField(RecordSchema parentSchema, int parentFieldId, IdGenerator<Integer> generator, String prefixFieldName, String fieldName, SchemaDefProtos.MajorType fieldType) {
-        this(parentSchema, parentFieldId, generator, prefixFieldName, fieldName, fieldType, JacksonHelper.STRING_TYPE);
+    public NamedField(int parentFieldId, IdGenerator<Integer> generator, String prefixFieldName, String fieldName, SchemaDefProtos.MajorType fieldType) {
+        this(parentFieldId, generator, prefixFieldName, fieldName, fieldType, JacksonHelper.STRING_TYPE);
     }
 
-    public NamedField(RecordSchema parentSchema,
-                      int parentFieldId,
+    public NamedField(int parentFieldId,
                       IdGenerator<Integer> generator,
                       String prefixFieldName,
                       String fieldName,
                       SchemaDefProtos.MajorType fieldType,
                       SchemaDefProtos.MajorType keyType) {
-        super(parentSchema, parentFieldId, generator, fieldType, prefixFieldName);
+        super(parentFieldId, generator, fieldType, prefixFieldName);
         this.fieldName = fieldName;
         this.keyType = keyType;
     }

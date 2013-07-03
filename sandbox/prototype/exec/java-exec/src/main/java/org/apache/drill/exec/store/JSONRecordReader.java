@@ -1,7 +1,6 @@
 package org.apache.drill.exec.store;
 
 import com.carrotsearch.hppc.IntObjectOpenHashMap;
-import com.carrotsearch.hppc.cursors.IntObjectCursor;
 import com.carrotsearch.hppc.cursors.ObjectCursor;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
@@ -178,8 +177,8 @@ public class JSONRecordReader implements RecordReader {
     public static enum ReadType {
         ARRAY(END_ARRAY) {
             @Override
-            public Field createField(RecordSchema parentSchema, int parentFieldId, IdGenerator<Integer> generator, String prefixFieldName, String fieldName, SchemaDefProtos.MajorType fieldType, int index) {
-                return new OrderedField(parentSchema, parentFieldId, generator, fieldType, prefixFieldName, index);
+            public Field createField(int parentFieldId, IdGenerator<Integer> generator, String prefixFieldName, String fieldName, SchemaDefProtos.MajorType fieldType, int index) {
+                return new OrderedField(parentFieldId, generator, fieldType, prefixFieldName, index);
             }
 
             @Override
@@ -189,14 +188,13 @@ public class JSONRecordReader implements RecordReader {
         },
         OBJECT(END_OBJECT) {
             @Override
-            public Field createField(RecordSchema parentSchema,
-                                     int parentFieldId,
+            public Field createField(int parentFieldId,
                                      IdGenerator<Integer> generator,
                                      String prefixFieldName,
                                      String fieldName,
                                      SchemaDefProtos.MajorType fieldType,
                                      int index) {
-                return new NamedField(parentSchema, parentFieldId, generator, prefixFieldName, fieldName, fieldType);
+                return new NamedField(parentFieldId, generator, prefixFieldName, fieldName, fieldType);
             }
 
             @Override
@@ -294,7 +292,6 @@ public class JSONRecordReader implements RecordReader {
                 }
 
                 field = createField(
-                        currentSchema,
                         parentFieldId,
                         reader.getGenerator(),
                         prefixFieldName,
@@ -394,8 +391,7 @@ public class JSONRecordReader implements RecordReader {
 
         public abstract RecordSchema createSchema() throws IOException;
 
-        public abstract Field createField(RecordSchema parentSchema,
-                                          int parentFieldId,
+        public abstract Field createField(int parentFieldId,
                                           IdGenerator<Integer> generator,
                                           String prefixFieldName,
                                           String fieldName,

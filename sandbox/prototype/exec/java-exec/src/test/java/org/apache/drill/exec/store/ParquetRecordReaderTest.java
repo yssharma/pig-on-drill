@@ -199,7 +199,7 @@ public class ParquetRecordReaderTest {
 
         ParquetFileReader parReader = new ParquetFileReader(configuration, path, Arrays.asList(
                 readFooter.getBlocks().get(0)), Arrays.asList(schema.getColumnDescription(path1)));
-        ParquetRecordReader pr = new ParquetRecordReader(context, testFile.getAbsolutePath(), parReader, readFooter);
+        ParquetRecordReader pr = new ParquetRecordReader(context, parReader, readFooter);
 
         MockOutputMutator mutator = new MockOutputMutator();
         List<ValueVector.ValueVectorBase> addFields = mutator.getAddFields();

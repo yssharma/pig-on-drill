@@ -24,13 +24,12 @@ import org.apache.drill.exec.proto.SchemaDefProtos;
 public class OrderedField extends Field {
     private final int index;
 
-    public OrderedField(RecordSchema parentSchema,
-                        int parentFieldId,
+    public OrderedField(int parentFieldId,
                         IdGenerator<Integer> generator,
                         SchemaDefProtos.MajorType type,
                         String prefixFieldName,
                         int index) {
-        super(parentSchema, parentFieldId, generator, type, prefixFieldName);
+        super(parentFieldId, generator, type, prefixFieldName);
         this.index = index;
     }
 

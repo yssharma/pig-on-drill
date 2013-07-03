@@ -40,14 +40,12 @@ public abstract class Field {
     final int fieldId;
     final String prefixFieldName;
     RecordSchema schema;
-    RecordSchema parentSchema;
     boolean read;
 
-    public Field(RecordSchema parentSchema, int parentFieldId, IdGenerator<Integer> generator, MajorType type, String prefixFieldName) {
+    public Field(int parentFieldId, IdGenerator<Integer> generator, MajorType type, String prefixFieldName) {
         this.fieldId = generator.getNextId();
         fieldType = type;
         this.prefixFieldName = prefixFieldName;
-        this.parentSchema = parentSchema;
         this.parentFieldId = parentFieldId;
     }
 
