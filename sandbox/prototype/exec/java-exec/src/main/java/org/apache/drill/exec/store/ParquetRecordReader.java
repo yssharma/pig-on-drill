@@ -59,6 +59,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.*;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public class ParquetRecordReader implements RecordReader {
     static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ParquetRecordReader.class);
     private static final int DEFAULT_LENGTH = 256 * 1024; // 256kb
@@ -142,23 +144,30 @@ public class ParquetRecordReader implements RecordReader {
                 return 0;
             }
             ColumnChunkMetaData column = footer.getBlocks().get(0).getColumns().get(0);
-            ValueVector.ValueVectorBase vector;
-            SchemaDefProtos.MajorType majorType = toMajorType(column.getType());
+            // todo pass length if necessary
+            SchemaDefProtos.DataMode mode = SchemaDefProtos.DataMode.OPTIONAL;
+            if ( schema.getColumnDescription(column.getPath()).getMaxDefinitionLevel() == 0){
+                mode = SchemaDefProtos.DataMode.REQUIRED;
+            }
+            SchemaDefProtos.MajorType majorType = toMajorType(column.getType(), 0, mode);
             MaterializedField f = MaterializedField.create(new SchemaPath(join(System.getProperty(
                     "file.separator"), column.getPath())), 1, 0, majorType);
-            //ValueVector.NullableInt vec = (ValueVector.NullableInt) TypeHelper.getNewVector(f, allocator);
-            ValueVector.NullableUInt1 vec = new ValueVector.NullableUInt1(f, allocator);
-            vec.allocateNew(30);
-            outputMutator.addField(1, vec);
+            ValueVector.ValueVectorBase vec = TypeHelper.getNewVector(f, allocator);
+            //ValueVector.NullableUInt1 vec = new ValueVector.NullableUInt1(f, allocator);
             p = currentPage.getPageReader(schema.getColumnDescription(column.getPath())).readPage();
+            vec.allocateNew(p.getValueCount());
+
+            //TODO - assign field IDs to each column, pass here instead of 1
+            outputMutator.addField(1, vec);
+
             String s = "";
             while (p != null) {
                 currBytes = p.getBytes();
                 vec.data.writeBytes(currBytes.toByteArray());
 
-                for (int i = 0; i < 8; i++) {
-                    vec.setNotNull(i);
-                    s += " " + vec.get(i);
+                for (int i = 0; i < p.getValueCount(); i++) {
+                    //vec.setNotNull(i);
+                    s += " " + ((ValueVector.Int)vec).get(i);
                 }
                 valueCount += p.getValueCount();
                 p = currentPage.getPageReader(schema.getColumnDescription(column.getPath())).readPage();
@@ -176,24 +185,29 @@ public class ParquetRecordReader implements RecordReader {
         return valueCount;
     }
 
-    static SchemaDefProtos.MajorType toMajorType(PrimitiveType.PrimitiveTypeName primitiveTypeName) {
+    static SchemaDefProtos.MajorType toMajorType(PrimitiveType.PrimitiveTypeName primitiveTypeName, SchemaDefProtos.DataMode mode) {
+        return toMajorType(primitiveTypeName, 0, mode);
+    }
+
+    static SchemaDefProtos.MajorType toMajorType(PrimitiveType.PrimitiveTypeName primitiveTypeName, int length, SchemaDefProtos.DataMode mode) {
         switch (primitiveTypeName) {
-            //case BINARY:
-            //    break;
+            case BINARY:
+                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.VARBINARY4).setMode(mode).build();
             case INT64:
-                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.BIGINT).build();
+                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.BIGINT).setMode(mode).build();
             case INT32:
-                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.INT).build();
+                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.INT).setMode(mode).build();
             case BOOLEAN:
-                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.BOOLEAN).build();
+                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.BOOLEAN).setMode(mode).build();
             case FLOAT:
-                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.FLOAT4).build();
+                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.FLOAT4).setMode(mode).build();
             case DOUBLE:
-                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.FLOAT8).build();
-            //case INT96:
-            //    break;
-            //case FIXED_LEN_BYTE_ARRAY:
-            //    break;
+                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.FLOAT8).setMode(mode).build();
+            case INT96:
+                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.FIXEDBINARY).setWidth(12).setMode(mode).build();
+            case FIXED_LEN_BYTE_ARRAY:
+                checkArgument(length > 0, "A length greater than zero must be provided for a FixedBinary type.");
+                return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.FIXEDBINARY).setWidth(length).setMode(mode).build();
             default:
                 throw new UnsupportedOperationException("Type not supported: " + primitiveTypeName);
         }
