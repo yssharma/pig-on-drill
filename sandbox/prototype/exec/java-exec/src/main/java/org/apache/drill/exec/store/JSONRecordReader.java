@@ -365,7 +365,7 @@ public class JSONRecordReader implements RecordReader {
                         return (index + 1) * 4 <= holder.getLength();
                     } else {
                         byte[] bytes = ((String) val).getBytes(UTF_8);
-                        int length = bytes.length * 8;
+                        int length = bytes.length;
                         holder.incAndCheckLength(length);
                         ValueVector.NullableVarChar4 varLen4 = (ValueVector.NullableVarChar4) holder.getValueVector();
                         varLen4.set(index, bytes);

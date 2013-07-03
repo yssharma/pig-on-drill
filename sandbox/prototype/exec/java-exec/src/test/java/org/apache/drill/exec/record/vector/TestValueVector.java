@@ -76,21 +76,14 @@ public class TestValueVector {
     String str1 = new String("AAAAA1");
     String str2 = new String("BBBBBBBBB2");
     String str3 = new String("CCCC3");
-    v.set(0, str1.getBytes(Charset.defaultCharset()));
-    v.set(1, str2.getBytes(Charset.defaultCharset()));
-    v.set(2, str3.getBytes(Charset.defaultCharset()));
+    v.set(0, str1.getBytes(Charset.forName("UTF-8")));
+    v.set(1, str2.getBytes(Charset.forName("UTF-8")));
+    v.set(2, str3.getBytes(Charset.forName("UTF-8")));
 
     // Check the sample strings
-    ByteBuf chk1 = allocator.buffer(6);
-    ByteBuf chk2 = allocator.buffer(10);
-    ByteBuf chk3 = allocator.buffer(5);
-    v.get(0).getBytes(0, chk1);
-    v.get(1).getBytes(0, chk2);
-    v.get(2).getBytes(0, chk3);
-
-    assertEquals(str1, chk1.toString(0, 6, Charset.defaultCharset()));
-    assertEquals(str2, chk2.toString(0, 10, Charset.defaultCharset()));
-    assertEquals(str3, chk3.toString(0, 5, Charset.defaultCharset()));
+    assertEquals(str1, new String(v.get(0), Charset.forName("UTF-8")));
+    assertEquals(str2, new String(v.get(1), Charset.forName("UTF-8")));
+    assertEquals(str3, new String(v.get(2), Charset.forName("UTF-8")));
 
     // Ensure null value throws
     try {

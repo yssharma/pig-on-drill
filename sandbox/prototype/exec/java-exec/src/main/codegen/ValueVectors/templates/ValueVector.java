@@ -352,7 +352,7 @@ public class ValueVector {
     }
 
     public Object getObject(int index) {
-      return data.get${(minor.javaType!type.javaType)?cap_first}(index);
+      return get(index);
     }
 
     @Override
@@ -419,11 +419,19 @@ public class ValueVector {
       this.lengthVector = new MutableUInt${type.width}(null, allocator);
     }
 
-    public ByteBuf get(int index) {
-      int offset = lengthVector.get(index);
-      int length = lengthVector.get(index+1) - offset;
-      ByteBuf dst = allocator.buffer(length);
-      data.getBytes(offset, dst, 0, length);
+    public byte[] get(int index) {
+      checkArgument(index >= 0);
+      int startIdx = 0;
+      int size = 0;
+      if (index == 0) {
+        size = lengthVector.get(1);
+      } else {
+        startIdx = lengthVector.get(index);
+        size = lengthVector.get(index + 1) - startIdx;
+      }
+      checkState(size >= 0);
+      byte[] dst = new byte[size];
+      data.getBytes(startIdx, dst, 0, size);
       return dst;
     }
 
@@ -463,16 +471,7 @@ public class ValueVector {
     }
 
     public Object getObject(int index) {
-      checkArgument(index >= 0);
-      int startIdx = 0;
-      if (index > 0) {
-        startIdx = (int) lengthVector.getObject(index - 1);
-      }
-      int size = (int) lengthVector.getObject(index) - startIdx;
-      checkState(size >= 0);
-      byte[] dst = new byte[size];
-      data.getBytes(startIdx, dst, 0, size);
-      return dst;
+      return get(index);
     }
 
     public Mutable${minor.class} getMutable() {
@@ -540,19 +539,17 @@ public class ValueVector {
      * @return  value of the element, if not null
      * @throws  NullValueException if the value is null
      */
-    public <#if type.major == "VarLen">ByteBuf<#else>${minor.javaType!type.javaType}</#if> get(int index) {
+    public <#if type.major == "VarLen">byte[]<#else>${minor.javaType!type.javaType}</#if> get(int index) {
       if (isNull(index))
         throw new NullValueException(index);
       return super.get(index);
     }
 
-    // TODO: make private
     public void setNull(int index) {
       bits.set(index, 0);
     }
 
-    // TODO: make private
-    public void setNotNull(int index) {
+    private void setNotNull(int index) {
       bits.set(index, 1);
     }
 
@@ -635,7 +632,7 @@ public class ValueVector {
       super.set(offsetVector.get(index), value);
     }
 
-    public <#if type.major == "VarLen">ByteBuf<#else>${minor.javaType!type.javaType}</#if> get(int index, int positionIndex) {
+    public <#if type.major == "VarLen">byte[]<#else>${minor.javaType!type.javaType}</#if> get(int index, int positionIndex) {
       assert positionIndex < countVector.get(index);
       return super.get(offsetVector.get(index) + positionIndex);
     }
