@@ -97,7 +97,7 @@
     {
       major: "Bit",
       width: 1,
-      javaType: "boolean",
+      javaType: "int",
       minor: [
         { class: "Bit" }
       ]

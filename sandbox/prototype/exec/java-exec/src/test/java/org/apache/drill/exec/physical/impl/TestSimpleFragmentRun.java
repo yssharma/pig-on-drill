@@ -49,7 +49,6 @@ public class TestSimpleFragmentRun extends PopUnitTestBase {
     bit.run();
     client.connect();
     List<QueryResultBatch> results = client.runQuery(QueryType.PHYSICAL, Files.toString(FileUtils.getResourceAsFile("/physical_test2.json"), Charsets.UTF_8));
-    
     // look at records
     RecordBatchLoader batchLoader = new RecordBatchLoader(bit.getContext().getAllocator());
     int recordCount = 0;
@@ -61,7 +60,7 @@ public class TestSimpleFragmentRun extends PopUnitTestBase {
       // print headers.
       if (schemaChanged) {
         System.out.println("\n\n========NEW SCHEMA=========\n\n");
-        for (IntObjectCursor<ValueVector.ValueVectorBase> v : batchLoader) {
+        for (IntObjectCursor<ValueVector.Base> v : batchLoader) {
 
           if (firstColumn) {
             firstColumn = false;
@@ -80,7 +79,7 @@ public class TestSimpleFragmentRun extends PopUnitTestBase {
       for (int i = 0; i < batchLoader.getRecordCount(); i++) {
         boolean first = true;
         recordCount++;
-        for (IntObjectCursor<ValueVector.ValueVectorBase> v : batchLoader) {
+        for (IntObjectCursor<ValueVector.Base> v : batchLoader) {
           if (first) {
             first = false;
           } else {

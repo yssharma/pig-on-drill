@@ -33,10 +33,10 @@ import org.apache.drill.exec.record.vector.ValueVector;
 import com.carrotsearch.hppc.IntObjectOpenHashMap;
 import com.carrotsearch.hppc.cursors.IntObjectCursor;
 
-public class RecordBatchLoader implements Iterable<IntObjectCursor<ValueVector.ValueVectorBase>>{
+public class RecordBatchLoader implements Iterable<IntObjectCursor<ValueVector.Base>>{
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(RecordBatchLoader.class);
 
-  private IntObjectOpenHashMap<ValueVector.ValueVectorBase> vectors = new IntObjectOpenHashMap<ValueVector.ValueVectorBase>();
+  private IntObjectOpenHashMap<ValueVector.Base> vectors = new IntObjectOpenHashMap<ValueVector.Base>();
   private final BufferAllocator allocator;
   private int recordCount; 
   private BatchSchema schema;
@@ -57,18 +57,18 @@ public class RecordBatchLoader implements Iterable<IntObjectCursor<ValueVector.V
    * @throws SchemaChangeException 
    */
   public boolean load(RecordBatchDef def, ByteBuf buf) throws SchemaChangeException {
-    logger.debug("Loading record batch with def {} and data {}", def, buf);
+//    logger.debug("Loading record batch with def {} and data {}", def, buf);
     this.recordCount = def.getRecordCount();
     boolean schemaChanged = false;
     
-    IntObjectOpenHashMap<ValueVector.ValueVectorBase> newVectors = new IntObjectOpenHashMap<ValueVector.ValueVectorBase>();
+    IntObjectOpenHashMap<ValueVector.Base> newVectors = new IntObjectOpenHashMap<ValueVector.Base>();
 
     List<FieldMetadata> fields = def.getFieldList();
     
     int bufOffset = 0;
     for (FieldMetadata fmd : fields) {
       FieldDef fieldDef = fmd.getDef();
-      ValueVector.ValueVectorBase v = vectors.remove(fieldDef.getFieldId());
+      ValueVector.Base v = vectors.remove(fieldDef.getFieldId());
       if (v != null) {
         if (v.getField().getDef().equals(fieldDef)) {
           v.allocateNew(fmd.getBufferLength(), buf.slice(bufOffset, fmd.getBufferLength()), recordCount);
@@ -89,7 +89,7 @@ public class RecordBatchLoader implements Iterable<IntObjectCursor<ValueVector.V
     
     if(!vectors.isEmpty()){
       schemaChanged = true;
-      for(IntObjectCursor<ValueVector.ValueVectorBase> cursor : newVectors){
+      for(IntObjectCursor<ValueVector.Base> cursor : newVectors){
         cursor.value.close();
       }
       
@@ -98,7 +98,7 @@ public class RecordBatchLoader implements Iterable<IntObjectCursor<ValueVector.V
     if(schemaChanged){
       // rebuild the schema.
       SchemaBuilder b = BatchSchema.newBuilder();
-      for(IntObjectCursor<ValueVector.ValueVectorBase> cursor : newVectors){
+      for(IntObjectCursor<ValueVector.Base> cursor : newVectors){
         b.addField(cursor.value.getField());
       }
       b.setSelectionVector(false);
@@ -110,8 +110,8 @@ public class RecordBatchLoader implements Iterable<IntObjectCursor<ValueVector.V
   }
 
   @SuppressWarnings("unchecked")
-  public <T extends ValueVector.ValueVectorBase> T getValueVector(int fieldId, Class<T> clazz) throws InvalidValueAccessor {
-    ValueVector.ValueVectorBase v = vectors.get(fieldId);
+  public <T extends ValueVector.Base> T getValueVector(int fieldId, Class<T> clazz) throws InvalidValueAccessor {
+    ValueVector.Base v = vectors.get(fieldId);
     assert v != null;
     if (v.getClass() != clazz)
       throw new InvalidValueAccessor(String.format(
@@ -130,7 +130,7 @@ public class RecordBatchLoader implements Iterable<IntObjectCursor<ValueVector.V
   }
 
   @Override
-  public Iterator<IntObjectCursor<ValueVector.ValueVectorBase>> iterator() {
+  public Iterator<IntObjectCursor<ValueVector.Base>> iterator() {
     return this.vectors.iterator();
   }
 

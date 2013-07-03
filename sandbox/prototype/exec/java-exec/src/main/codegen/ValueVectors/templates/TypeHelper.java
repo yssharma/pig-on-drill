@@ -83,7 +83,7 @@ public class TypeHelper {
   }
 
 
-  public static ValueVector.ValueVectorBase getNewVector(MaterializedField field, BufferAllocator allocator){
+  public static ValueVector.Base getNewVector(MaterializedField field, BufferAllocator allocator){
     MajorType type = field.getType();
 
     switch (type.getMinorType()) {

@@ -34,7 +34,7 @@ public class TestValueVector {
         MaterializedField field = MaterializedField.create(defBuilder.build());
 
     // Create a new value vector for 1024 integers
-    ValueVector.UInt4 v = new ValueVector.UInt4(field, allocator);
+    ValueVector.MutableUInt4 v = new ValueVector.MutableUInt4(field, allocator);
     v.allocateNew(1024);
 
     // Put and set a few values
@@ -76,21 +76,14 @@ public class TestValueVector {
     String str1 = new String("AAAAA1");
     String str2 = new String("BBBBBBBBB2");
     String str3 = new String("CCCC3");
-    v.set(0, str1.getBytes(Charset.defaultCharset()));
-    v.set(1, str2.getBytes(Charset.defaultCharset()));
-    v.set(2, str3.getBytes(Charset.defaultCharset()));
+    v.set(0, str1.getBytes(Charset.forName("UTF-8")));
+    v.set(1, str2.getBytes(Charset.forName("UTF-8")));
+    v.set(2, str3.getBytes(Charset.forName("UTF-8")));
 
     // Check the sample strings
-    ByteBuf chk1 = allocator.buffer(6);
-    ByteBuf chk2 = allocator.buffer(10);
-    ByteBuf chk3 = allocator.buffer(5);
-    v.get(0).getBytes(0, chk1);
-    v.get(1).getBytes(0, chk2);
-    v.get(2).getBytes(0, chk3);
-
-    assertEquals(str1, chk1.toString(0, 6, Charset.defaultCharset()));
-    assertEquals(str2, chk2.toString(0, 10, Charset.defaultCharset()));
-    assertEquals(str3, chk3.toString(0, 5, Charset.defaultCharset()));
+    assertEquals(str1, new String(v.get(0), Charset.forName("UTF-8")));
+    assertEquals(str2, new String(v.get(1), Charset.forName("UTF-8")));
+    assertEquals(str3, new String(v.get(2), Charset.forName("UTF-8")));
 
     // Ensure null value throws
     try {
@@ -138,6 +131,122 @@ public class TestValueVector {
       assertFalse(false);
     } catch(NullValueException e) { }
 
+    v.allocateNew(2048);
+    try {
+      v.get(0);
+      assertFalse(false);
+    } catch(NullValueException e) { }
+
+    v.set(0, 100);
+    v.set(1, 101);
+    v.set(100, 102);
+    v.set(1022, 103);
+    v.set(1023, 104);
+    assertEquals(100, v.get(0));
+    assertEquals(101, v.get(1));
+    assertEquals(102, v.get(100));
+    assertEquals(103, v.get(1022));
+    assertEquals(104, v.get(1023));
+
+    // Ensure null values throw
+    try {
+      v.get(3);
+      assertFalse(false);
+    } catch(NullValueException e) { }
+    
   }
 
+  @Test
+  public void testNullableFloat() {
+    // Build an optional float field definition
+    SchemaDefProtos.MajorType.Builder typeBuilder = SchemaDefProtos.MajorType.newBuilder();
+    SchemaDefProtos.FieldDef.Builder defBuilder = SchemaDefProtos.FieldDef.newBuilder();
+    typeBuilder
+        .setMinorType(SchemaDefProtos.MinorType.FLOAT4)
+        .setMode(SchemaDefProtos.DataMode.OPTIONAL)
+        .setWidth(4);
+    defBuilder
+        .setFieldId(1)
+        .setParentId(0)
+        .setMajorType(typeBuilder.build());
+    MaterializedField field = MaterializedField.create(defBuilder.build());
+
+    // Create a new value vector for 1024 integers
+    ValueVector.NullableFloat4 v = (ValueVector.NullableFloat4) TypeHelper.getNewVector(field, allocator);
+
+    v.allocateNew(1024);
+
+    // Put and set a few values
+    v.set(0, 100.1f);
+    v.set(1, 101.2f);
+    v.set(100, 102.3f);
+    v.set(1022, 103.4f);
+    v.set(1023, 104.5f);
+    assertEquals(100.1f, v.get(0), 0);
+    assertEquals(101.2f, v.get(1), 0);
+    assertEquals(102.3f, v.get(100), 0);
+    assertEquals(103.4f, v.get(1022), 0);
+    assertEquals(104.5f, v.get(1023), 0);
+
+    // Ensure null values throw
+    try {
+      v.get(3);
+      assertFalse(false);
+    } catch(NullValueException e) { }
+
+    v.allocateNew(2048);
+    try {
+      v.get(0);
+      assertFalse(false);
+    } catch(NullValueException e) { }
+
+  }  
+  
+  @Test
+  public void testBitVector() {
+    // Build a required boolean field definition
+    SchemaDefProtos.MajorType.Builder typeBuilder = SchemaDefProtos.MajorType.newBuilder();
+    SchemaDefProtos.FieldDef.Builder defBuilder = SchemaDefProtos.FieldDef.newBuilder();
+    typeBuilder
+        .setMinorType(SchemaDefProtos.MinorType.BOOLEAN)
+        .setMode(SchemaDefProtos.DataMode.REQUIRED)
+        .setWidth(4);
+    defBuilder
+        .setFieldId(1)
+        .setParentId(0)
+        .setMajorType(typeBuilder.build());
+    MaterializedField field = MaterializedField.create(defBuilder.build());
+
+    // Create a new value vector for 1024 integers
+    ValueVector.MutableBit v = new ValueVector.MutableBit(field, allocator);
+    v.allocateNew(1024);
+
+    // Put and set a few values
+    v.set(0, 1);
+    v.set(1, 0);
+    v.set(100, 0);
+    v.set(1022, 1);
+    assertEquals(1, v.get(0));
+    assertEquals(0, v.get(1));
+    assertEquals(0, v.get(100));
+    assertEquals(1, v.get(1022));
+
+    // test setting the same value twice
+    v.set(0, 1);
+    v.set(0, 1);
+    v.set(1, 0);
+    v.set(1, 0);
+    assertEquals(1, v.get(0));
+    assertEquals(0, v.get(1));
+
+    // test toggling the values
+    v.set(0, 0);
+    v.set(1, 1);
+    assertEquals(0, v.get(0));
+    assertEquals(1, v.get(1));
+    
+    // Ensure unallocated space returns 0
+    assertEquals(0, v.get(3));
+  }
+  
 }

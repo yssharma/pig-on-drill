@@ -37,7 +37,7 @@ public class MockRecordReader implements RecordReader {
   private OutputMutator output;
   private MockScanEntry config;
   private FragmentContext context;
-  private ValueVector.ValueVectorBase[] valueVectors;
+  private ValueVector.Base[] valueVectors;
   private int recordsRead;
 
   public MockRecordReader(FragmentContext context, MockScanEntry config) {
@@ -53,16 +53,14 @@ public class MockRecordReader implements RecordReader {
     return x;
   }
 
-  private ValueVector.ValueVectorBase getVector(int fieldId, String name, MajorType type, int length) {
+  private ValueVector.Base getVector(int fieldId, String name, MajorType type, int length) {
     assert context != null : "Context shouldn't be null.";
-    System.out.println("Mock Reader getting Vector: " + name + ", len: " + length);
     if(type.getMode() != DataMode.REQUIRED) throw new UnsupportedOperationException();
     
     MaterializedField f = MaterializedField.create(new SchemaPath(name), fieldId, 0, type);
-    ValueVector.ValueVectorBase v;
+    ValueVector.Base v;
     v = TypeHelper.getNewVector(f, context.getAllocator());
     v.allocateNew(length);
-    System.out.println("Mock Reader getting Vector: " + v.getBuffers() + " class: " + v.getClass().getName() + " allocSize: " + v.getAllocatedSize());
     return v;
 
   }
@@ -72,7 +70,7 @@ public class MockRecordReader implements RecordReader {
     try {
       this.output = output;
       int estimateRowSize = getEstimatedRecordSize(config.getTypes());
-      valueVectors = new ValueVector.ValueVectorBase[config.getTypes().length];
+      valueVectors = new ValueVector.Base[config.getTypes().length];
       int batchRecordCount = 250000 / estimateRowSize;
 
       for (int i = 0; i < config.getTypes().length; i++) {
@@ -88,11 +86,11 @@ public class MockRecordReader implements RecordReader {
 
   @Override
   public int next() {
-    // allocate vv bytebuf
     int recordSetSize = Math.min(valueVectors[0].capacity(), this.config.getRecords()- recordsRead);
     recordsRead += recordSetSize;
-    for(ValueVector.ValueVectorBase v : valueVectors){
-//      v.randomizeData();
+    for(ValueVector.Base v : valueVectors){
+      logger.debug("MockRecordReader:  Generating random data for VV of type " + v.getClass().getName());
+      v.randomizeData();
       v.setRecordCount(recordSetSize);
     }
     return recordSetSize;
@@ -104,7 +102,7 @@ public class MockRecordReader implements RecordReader {
       try {
         output.removeField(valueVectors[i].getField().getFieldId());
       } catch (SchemaChangeException e) {
-        logger.warn("Failure while trying tremove field.", e);
+        logger.warn("Failure while trying to remove field.", e);
       }
       valueVectors[i].close();
     }

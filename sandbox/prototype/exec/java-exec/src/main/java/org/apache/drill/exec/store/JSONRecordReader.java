@@ -335,7 +335,6 @@ public class JSONRecordReader implements RecordReader {
         }
 
         private static <T> boolean addValueToVector(int index, VectorHolder holder, BufferAllocator allocator, T val, SchemaDefProtos.MinorType minorType) {
-            System.out.println("JSONRecordReader: Adding value to vector:  MinorType: " + minorType + ", Pos: " + index + ", Value: " + val);
             switch (minorType) {
                 case INT: {
                     holder.incAndCheckLength(32);
@@ -363,7 +362,7 @@ public class JSONRecordReader implements RecordReader {
                         return (index + 1) * 4 <= holder.getLength();
                     } else {
                         byte[] bytes = ((String) val).getBytes(UTF_8);
-                        int length = bytes.length * 8;
+                        int length = bytes.length;
                         holder.incAndCheckLength(length);
                         ValueVector.NullableVarChar4 varLen4 = (ValueVector.NullableVarChar4) holder.getValueVector();
                         varLen4.set(index, bytes);
@@ -373,10 +372,8 @@ public class JSONRecordReader implements RecordReader {
                 case BOOLEAN: {
                     holder.incAndCheckLength(1);
                     ValueVector.NullableBit bit = (ValueVector.NullableBit) holder.getValueVector();
-                    if (val == null) {
-                        bit.setNull(index);
-                    } else if ((Boolean) val) {
-                        bit.set(index, (Boolean) val);
+                    if (val != null) {
+                        bit.set(index, (Boolean)val ? 1 : 0);
                     }
                     return holder.hasEnoughSpace(1);
                 }
@@ -408,7 +405,7 @@ public class JSONRecordReader implements RecordReader {
             SchemaDefProtos.MajorType type = field.getFieldType();
             int fieldId = field.getFieldId();
             MaterializedField f = MaterializedField.create(new SchemaPath(field.getFieldName()), fieldId, parentFieldId, type);
-            ValueVector.ValueVectorBase v = TypeHelper.getNewVector(f, allocator);
+            ValueVector.Base v = TypeHelper.getNewVector(f, allocator);
             v.allocateNew(batchSize);
             VectorHolder holder = new VectorHolder(batchSize, v);
             valueVectorMap.put(fieldId, holder);

@@ -85,6 +85,7 @@ public abstract class RpcBus<T extends EnumLite, C extends RemoteConnection> imp
       Preconditions.checkNotNull(protobufBody);
       ChannelListenerWithCoordinationId futureListener = queue.get(listener, clazz);
       OutboundRpcMessage m = new OutboundRpcMessage(RpcMode.REQUEST, rpcType, futureListener.getCoordinationId(), protobufBody, dataBodies);
+      logger.debug("Outbound RPC message: {}.    DATA BODIES: {}", m, dataBodies);
       ChannelFuture channelFuture = connection.getChannel().write(m);
       channelFuture.addListener(futureListener);
       completed = true;
