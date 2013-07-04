@@ -11,6 +11,7 @@ import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.proto.SchemaDefProtos;
 import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.record.vector.ValueVector;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -187,6 +188,7 @@ public class JSONRecordReaderTest {
         assertEquals(0, jr.next());
     }
 
+    @Ignore("Pending repeated map implementation")
     @Test
     public void testNestedFieldInSameBatch(@Injectable final FragmentContext context) throws ExecutionSetupException {
         new Expectations() {
