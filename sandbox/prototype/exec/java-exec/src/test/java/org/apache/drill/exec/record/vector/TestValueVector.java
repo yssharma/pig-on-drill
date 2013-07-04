@@ -48,7 +48,7 @@ public class TestValueVector {
     assertEquals(102, v.get(100));
     assertEquals(103, v.get(1022));
     assertEquals(104, v.get(1023));
-    
+
     // Ensure unallocated space returns 0
     assertEquals(0, v.get(3));
   }
@@ -153,7 +153,7 @@ public class TestValueVector {
       v.get(3);
       assertFalse(false);
     } catch(NullValueException e) { }
-    
+
   }
 
   @Test
@@ -200,8 +200,8 @@ public class TestValueVector {
       assertFalse(false);
     } catch(NullValueException e) { }
 
-  }  
-  
+  }
+
   @Test
   public void testBitVector() {
     // Build a required boolean field definition
@@ -244,9 +244,9 @@ public class TestValueVector {
     v.set(1, 1);
     assertEquals(0, v.get(0));
     assertEquals(1, v.get(1));
-    
+
     // Ensure unallocated space returns 0
     assertEquals(0, v.get(3));
   }
-  
+
 }
