@@ -28,10 +28,6 @@ import org.apache.drill.exec.proto.UserBitShared.FieldMetadata;
 import org.apache.drill.exec.record.DeadBuf;
 import org.apache.drill.exec.record.MaterializedField;
 
-// TODO:
-//    - Create ReadableValueVector to complement mutable version
-//    - Implement repeated map
-
 /**
  * ValueVectorTypes defines a set of template-generated classes which implement type-specific
  * value vectors.  The template approach was chosen due to the lack of multiple inheritence.  It
@@ -63,13 +59,13 @@ public class ValueVector {
     public abstract int getAllocatedSize();
 
     /**
-     * Virtaul method to get the size requirement (in bytes) for the given number of values.  Only
-     * accurate for fixed width value vectors.
+     * Get the size requirement (in bytes) for the given number of values.  Takes derived
+     * type specs into account.
      */
     public abstract int getSizeFromCount(int valueCount);
 
     /**
-     * Get the Java object representation of the specified element
+     * Get the Java Object representation of the element at the specified position
      *
      * @param index   Index of the value to get
      */
@@ -77,7 +73,7 @@ public class ValueVector {
 
     /**
      * Return the underlying buffers associated with this vector. Note that this doesn't impact the
-     * reference counts for this buffer so it only should be used for in-context access. Also note 
+     * reference counts for this buffer so it only should be used for in-context access. Also note
      * that this buffer changes regularly thus external classes shouldn't hold a reference to
      * it (unless they change it).
      *
@@ -105,13 +101,16 @@ public class ValueVector {
 
     /**
      * Get information about how this field is materialized.
-     *
      * @return
      */
     public MaterializedField getField() {
       return field;
     }
 
+    /**
+     * Get the number of records allocated for this value vector.
+     * @return number of allocated records
+     */
     public int getRecordCount() {
       return recordCount;
     }
@@ -187,6 +186,14 @@ public class ValueVector {
 
   }
 
+  /**
+   * Bit implements a vector of bit-width values.  Elements in the vector are accessed
+   * by position from the logical start of the vector.
+   *   The width of each element is 1 bit.
+   *   The equivilent Java primitive is an int containing the value '0' or '1'.
+   *
+   * NB: this class is automatically generated from ValueVectorTypes.tdd using FreeMarker.
+   */
   public static class Bit extends Base {
     static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Bit.class);
 
@@ -194,13 +201,19 @@ public class ValueVector {
       super(field, allocator);
     }
 
+    /**
+     * Get the byte holding the desired bit, then mask all other bits.  Iff the result is 0, the
+     * bit was not set.
+     *
+     * @param  index   position of the bit in the vector
+     * @return 1 if set, otherwise 0
+     */
     public int get(int index) {
-      logger.warn("BIT GET: index: {}, byte: {}, mask: {}, masked byte: {}",
-                  index,
-                  data.getByte((int)Math.floor(index/8)),
-                  (int)Math.pow(2, (index % 8)),
-                  data.getByte((int)Math.floor(index/8)) & (int)Math.pow(2, (index % 8)));
-
+      // logger.debug("BIT GET: index: {}, byte: {}, mask: {}, masked byte: {}",
+      //             index,
+      //             data.getByte((int)Math.floor(index/8)),
+      //             (int)Math.pow(2, (index % 8)),
+      //             data.getByte((int)Math.floor(index/8)) & (int)Math.pow(2, (index % 8)));
       return ((data.getByte((int)Math.floor(index/8)) & (int)Math.pow(2, (index % 8))) == 0) ? 0 : 1;
     }
 
@@ -229,8 +242,7 @@ public class ValueVector {
     /**
      * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
      *
-     * @param valueCount
-     *          The number of values which can be contained within this vector.
+     * @param valueCount  The number of values which can be contained within this vector.
      */
     @Override
     public void allocateNew(int valueCount) {
@@ -242,6 +254,13 @@ public class ValueVector {
 
   }
 
+  /**
+   * MutableBit implements a vector of bit-width values.  Elements in the vector are accessed
+   * by position from the logical start of the vector.  Values should be pushed onto the vector
+   * sequentially, but may be randomly accessed.
+   *
+   * NB: this class is automatically generated from ValueVectorTypes.tdd using FreeMarker.
+   */
   public static class MutableBit extends Bit {
 
     public MutableBit(MaterializedField field, BufferAllocator allocator) {
@@ -249,7 +268,10 @@ public class ValueVector {
     }
 
     /**
-     * Set the bit at the given index to the specified value
+     * Set the bit at the given index to the specified value.
+     *
+     * @param index   position of the bit to set
+     * @param value   value to set (either 1 or 0)
      */
     public void set(int index, int value) {
       byte currentByte = data.getByte((int)Math.floor(index/8));
@@ -277,11 +299,19 @@ public class ValueVector {
     }
   }
 
-
 <#list types as type>
-  <#list type.minor as minor>
-    <#if type.major == "Fixed">
+ <#list type.minor as minor>
+  <#if type.major == "Fixed">
 
+  /**
+   * ${minor.class} implements a vector of fixed width values.  Elements in the vector are accessed
+   * by position, starting from the logical start of the vector.  Values should be pushed onto the
+   * vector sequentially, but may be randomly accessed.
+   *   The width of each element is ${type.width} byte(s)
+   *   The equivilent Java primitive is '${minor.javaType!type.javaType}'
+   *
+   * NB: this class is automatically generated from ValueVectorTypes.tdd using FreeMarker.
+   */
   public static class ${minor.class} extends Base {
     static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}.class);
 
@@ -318,7 +348,7 @@ public class ValueVector {
       return (Mutable${minor.class})this;
     }
 
-      <#if (type.width > 8)>
+   <#if (type.width > 8)>
 
     public ${minor.javaType!type.javaType} get(int index) {
       ByteBuf dst = allocator.buffer(${type.width});
@@ -342,10 +372,10 @@ public class ValueVector {
           r.nextBytes(bytes);
           data.setByte(i, bytes[0]);
         }
-      }      
+      }
     }
 
-      <#else> <#-- type.width <= 8 -->
+   <#else> <#-- type.width <= 8 -->
 
     public ${minor.javaType!type.javaType} get(int index) {
       return data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
@@ -360,50 +390,56 @@ public class ValueVector {
       if (this.data != DeadBuf.DEAD_BUFFER) {
         Random r = new Random();
         for(int i =0; i < data.capacity()-${type.width}; i += ${type.width}){
-          data.set${(minor.javaType!type.javaType)?cap_first}(i, r.next<#if (type.width >= 4)>${(minor.javaType!type.javaType)?cap_first}<#else>Int</#if>());
+          data.set${(minor.javaType!type.javaType)?cap_first}(i,
+              r.next<#if (type.width >= 4)>${(minor.javaType!type.javaType)?cap_first}
+                    <#else>Int
+                    </#if>());
         }
-      }      
+      }
     }
 
-      </#if> <#-- type.width -->
-
+   </#if> <#-- type.width -->
   }
 
-  public static class Mutable${minor.class} extends ${minor.class} {
+  /**
+   * Mutable${minor.class} implements a mutable vector of fixed width values.  Elements in the
+   * vector are accessed by position from the logical start of the vector.  Values should be pushed
+   * onto the vector sequentially, but may be randomly accessed.
+   *   The width of each element is ${type.width} byte(s)
+   *   The equivilent Java primitive is '${minor.javaType!type.javaType}'
+   *
+   * NB: this class is automatically generated from ValueVectorTypes.tdd using FreeMarker.
+   */
+   public static class Mutable${minor.class} extends ${minor.class} {
 
     public Mutable${minor.class}(MaterializedField field, BufferAllocator allocator) {
       super(field, allocator);
     }
 
-      <#if (type.width > 8)>
     /**
      * Set the element at the given index to the given value.  Note that widths smaller than
      * 32 bits are handled by the ByteBuf interface.
+     *
+     * @param index   position of the bit to set
+     * @param value   value to set
      */
+   <#if (type.width > 8)>
     public void set(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
       data.setBytes(index * ${type.width}, value);
-    }
-
-      <#else> <#-- type.width <= 8 -->
-
-    /**
-     * Set the element at the given index to the given value.  Note that widths smaller than
-     * 32-bits are handled by the ByteBuf interface.
-     */
+   <#else> <#-- type.width <= 8 -->
     public void set(int index, <#if (type.width >= 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
       data.set${(minor.javaType!type.javaType)?cap_first}(index * ${type.width}, value);
+   </#if> <#-- type.width -->
     }
-
-      </#if> <#-- type.width -->
-
   }
 
-    <#elseif type.major == "VarLen">
+  <#elseif type.major == "VarLen">
 
   /**
    * ${minor.class} implements a vector of variable width values.  Elements in the vector
    * are accessed by position from the logical start of the vector.  A fixed width lengthVector
-   * is used to convert an element's position to it's offset from the start of the (0-based) ByteBuf.
+   * is used to convert an element's position to it's offset from the start of the (0-based)
+   * ByteBuf.  Size is inferred by adjacent elements.
    *   The width of each element is ${type.width} byte(s)
    *   The equivilent Java primitive is '${minor.javaType!type.javaType}'
    *
@@ -479,12 +515,28 @@ public class ValueVector {
     }
   }
 
+  /**
+   * Mutable${minor.class} implements a vector of variable width values.  Elements in the vector
+   * are accessed by position from the logical start of the vector.  A fixed width lengthVector
+   * is used to convert an element's position to it's offset from the start of the (0-based)
+   * ByteBuf.  Size is inferred by adjacent elements.
+   *   The width of each element is ${type.width} byte(s)
+   *   The equivilent Java primitive is '${minor.javaType!type.javaType}'
+   *
+   * NB: this class is automatically generated from ValueVectorTypes.tdd using FreeMarker.
+   */
   public static class Mutable${minor.class} extends ${minor.class} {
 
     public Mutable${minor.class}(MaterializedField field, BufferAllocator allocator) {
       super(field, allocator);
     }
 
+    /**
+     * Set the variable length element at the specified index to the supplied byte array.
+     *
+     * @param index   position of the bit to set
+     * @param bytes   array of bytes to write
+     */
     public void set(int index, byte[] bytes) {
       checkArgument(index >= 0);
       if (index == 0) {
@@ -494,7 +546,8 @@ public class ValueVector {
       }
       else {
         int currentOffset = lengthVector.get(index);
-        lengthVector.set(index + 1, currentOffset + bytes.length); // set the end offset of the buffer
+        // set the end offset of the buffer
+        lengthVector.set(index + 1, currentOffset + bytes.length);
         data.setBytes(currentOffset, bytes);
       }
     }
@@ -507,7 +560,7 @@ public class ValueVector {
 
   }
 
-    </#if> <#-- type.major -->
+  </#if> <#-- type.major -->
 
   /**
    * Nullable${minor.class} implements a vector of values which could be null.  Elements in the vector
@@ -526,8 +579,10 @@ public class ValueVector {
     }
 
     /**
-     * Set the element at the given index to the given value.  Note that widths smaller than
-     * 32-bits are handled by the ByteBuf interface.
+     * Set the variable length element at the specified index to the supplied byte array.
+     *
+     * @param index   position of the bit to set
+     * @param bytes   array of bytes to write
      */
     public void set(int index, <#if type.major == "VarLen">byte[]<#elseif (type.width < 4)>int<#else>${minor.javaType!type.javaType}</#if> value) {
       setNotNull(index);
@@ -536,6 +591,8 @@ public class ValueVector {
 
     /**
      * Get the element at the specified position.
+     *
+     * @param   index   position of the value
      * @return  value of the element, if not null
      * @throws  NullValueException if the value is null
      */
@@ -560,8 +617,7 @@ public class ValueVector {
     /**
      * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
      *
-     * @param valueCount
-     *          The number of values which can be contained within this vector.
+     * @param valueCount   The number of values which may be contained by this vector.
      */
     public void allocateNew(int totalBytes, ByteBuf sourceBuffer, int valueCount) {
       super.allocateNew(totalBytes, sourceBuffer, valueCount);
@@ -603,7 +659,15 @@ public class ValueVector {
     }
   }
 
-  public static class Repeated${minor.class} extends Mutable${minor.class} {
+  /**
+   * Repeated${minor.class} implements a vector with multple values per row (e.g. JSON array or
+   * repeated protobuf field).  The implementation uses two additional value vectors; one to convert
+   * the index offset to the underlying element offset, and another to store the number of values
+   * in the vector.
+   *
+   * NB: this class is automatically generated from ValueVectorTypes.tdd using FreeMarker.
+   */
+   public static class Repeated${minor.class} extends Mutable${minor.class} {
 
     private MutableUInt4 countVector;    // number of repeated elements in each record
     private MutableUInt4 offsetVector;   // offsets to start of each record
@@ -621,7 +685,11 @@ public class ValueVector {
     }
 
     /**
-     * Add an element to the given record index.
+     * Add an element to the given record index.  This is similar to the set() method in other
+     * value vectors, except that it permits setting multiple values for a single record.
+     *
+     * @param index   record of the element to add
+     * @param value   value to add to the given row
      */
     public void add(int index, <#if (type.width > 4)> ${minor.javaType!type.javaType}
                                <#elseif type.major == "VarLen"> byte[]
@@ -632,7 +700,18 @@ public class ValueVector {
       super.set(offsetVector.get(index), value);
     }
 
-    public <#if type.major == "VarLen">byte[]<#else>${minor.javaType!type.javaType}</#if> get(int index, int positionIndex) {
+    /**
+     * Get a value for the given record.  Each element in the repeated field is accessed by
+     * the positionIndex param.
+     *
+     * @param  index           record containing the repeated field
+     * @param  positionIndex   position within the repeated field
+     * @return element at the given position in the given record
+     */
+    public <#if type.major == "VarLen">byte[]
+           <#else>${minor.javaType!type.javaType}
+           </#if> get(int index, int positionIndex) {
+
       assert positionIndex < countVector.get(index);
       return super.get(offsetVector.get(index) + positionIndex);
     }
@@ -683,7 +762,7 @@ public class ValueVector {
     }
 
   }
-  </#list>
+ </#list>
 </#list>
 }
 
