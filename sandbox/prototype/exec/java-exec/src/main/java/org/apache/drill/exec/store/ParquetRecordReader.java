@@ -76,7 +76,7 @@ public class ParquetRecordReader implements RecordReader {
   private int recordsReadFromPage;
 
   // class to keep track of the read position of variable length columns
-  private class PageReadStatus{
+  private class PageReadStatus {
     int readPos;
   }
 
@@ -120,12 +120,18 @@ public class ParquetRecordReader implements RecordReader {
    */
   public int getTypeLengthInBytes(PrimitiveType.PrimitiveTypeName type) {
     switch (type) {
-      case INT64:   return 8;
-      case INT32:   return 4;
-      case BOOLEAN: return 1;
-      case FLOAT:   return 4;
-      case DOUBLE:  return 8;
-      case INT96:   return 16;
+      case INT64:
+        return 8;
+      case INT32:
+        return 4;
+      case BOOLEAN:
+        return 1;
+      case FLOAT:
+        return 4;
+      case DOUBLE:
+        return 8;
+      case INT96:
+        return 16;
       default: // binary, fixed length byte array
         return -1;
     }
@@ -142,41 +148,44 @@ public class ParquetRecordReader implements RecordReader {
     currentRowGroupIndex = -1;
     currentRowGroup = null;
 
-    try {
-      List<ColumnDescriptor> columns = schema.getColumns();
-      allFieldsFixedLength = true;
-      for (int i = 0; i < columns.size(); ++i) {
-        ColumnDescriptor column = columns.get(i);
+    List<ColumnDescriptor> columns = schema.getColumns();
+    allFieldsFixedLength = true;
+    for (int i = 0; i < columns.size(); ++i) {
+      ColumnDescriptor column = columns.get(i);
 
 
-        // sum the lengths of all of the fixed length fields
-        if (column.getType() != PrimitiveType.PrimitiveTypeName.BINARY) {
-          // There is not support for the fixed binary type yet in parquet, leaving a task here as a reminder
-          // TODO - implement this when the feature is added upstream
+      // sum the lengths of all of the fixed length fields
+      if (column.getType() != PrimitiveType.PrimitiveTypeName.BINARY) {
+        // There is not support for the fixed binary type yet in parquet, leaving a task here as a reminder
+        // TODO - implement this when the feature is added upstream
 //          if (column.getType() != PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY){
 //              byteWidthAllFixedFields += column.getType().getWidth()
 //          }
-          byteWidthAllFixedFields += getTypeLengthInBytes(column.getType());
-        }
-        else{
-          allFieldsFixedLength = false;
-        }
-        Field field = new NamedField(
-            0,
-            generator,
-            "",
-            toFieldName(column.getPath()),
-            toMajorType(column.getType(), getDataMode(column))
-        );
-        currentSchema.addField(field);
-        getOrCreateVectorHolder(field, 0);
-        descriptorMap.put(field.getFieldId(), column);
+        byteWidthAllFixedFields += getTypeLengthInBytes(column.getType());
+      } else {
+        allFieldsFixedLength = false;
       }
-      if (allFieldsFixedLength){
+      Field field = new NamedField(
+          0,
+          generator,
+          "",
+          toFieldName(column.getPath()),
+          toMajorType(column.getType(), getDataMode(column))
+      );
+      currentSchema.addField(field);
+      descriptorMap.put(field.getFieldId(), column);
+    }
+
+
+    if (allFieldsFixedLength) {
+      try {
         recordsPerBatch = DEFAULT_LENGTH / byteWidthAllFixedFields;
+        for (Field field : currentSchema.getFields()) {
+          getOrCreateVectorHolder(field, 0, TypeHelper.getSize(field.getFieldType()));
+        }
+      } catch (SchemaChangeException e) {
+        throw new DrillRuntimeException(e);
       }
-    } catch (SchemaChangeException e) {
-      throw new DrillRuntimeException(e);
     }
   }
 
@@ -198,14 +207,14 @@ public class ParquetRecordReader implements RecordReader {
     }
   }
 
-  private VectorHolder getOrCreateVectorHolder(Field field, int parentFieldId) throws SchemaChangeException {
+  private VectorHolder getOrCreateVectorHolder(Field field, int parentFieldId, int allocateSize) throws SchemaChangeException {
     if (!valueVectorMap.containsKey(field.getFieldId())) {
       SchemaDefProtos.MajorType type = field.getFieldType();
       int fieldId = field.getFieldId();
       MaterializedField f = MaterializedField.create(new SchemaPath(field.getFieldName()), fieldId, parentFieldId, type);
       ValueVector.Base v = TypeHelper.getNewVector(f, allocator);
-      v.allocateNew(batchSize);
-      VectorHolder holder = new VectorHolder(batchSize, v);
+      v.allocateNew(allocateSize);
+      VectorHolder holder = new VectorHolder(allocateSize, v);
       valueVectorMap.put(fieldId, holder);
       outputMutator.addField(fieldId, v);
       return holder;
@@ -216,16 +225,14 @@ public class ParquetRecordReader implements RecordReader {
   @Override
   public int next() {
     resetBatch();
-    Page p = null;
     int newRecordCount = 0;
-
     int recordsToRead = 0;
     try {
 
-      if (allFieldsFixedLength){
+      if (allFieldsFixedLength) {
         recordsToRead = recordsPerBatch;
-      }
-      else{
+      } else {
+
         //loop through variable length data to find the maximum records that will fit in this batch
         // this will be a bit annoying if we want to loop though row groups, then pages and then individual variable
         // length values...
@@ -233,15 +240,12 @@ public class ParquetRecordReader implements RecordReader {
         // cannot find more information on this right now, will keep looking
       }
 
-      while (newRecordCount < recordsToRead && p != null) {
-        if (currentRowGroup == null){
-          currentRowGroup = parquetReader.readNextRowGroup();
-          currentRowGroupIndex++;
-        }
+      if (currentRowGroup == null) {
+        currentRowGroup = parquetReader.readNextRowGroup();
+        currentRowGroupIndex++;
+      }
 
-        if (currentRowGroup == null) {
-          return 0;
-        }
+      while (currentRowGroup != null && recordsToRead < recordsToRead) {
 
         for (ColumnChunkMetaData column : footer.getBlocks().get(currentRowGroupIndex).getColumns()) {
 
@@ -252,46 +256,55 @@ public class ParquetRecordReader implements RecordReader {
           ColumnDescriptor descriptor = descriptorMap.get(field.getFieldId());
 
           PageReader pageReader = currentRowGroup.getPageReader(descriptor);
-          p = pageReader.readPage();
+
+          if(pageReader == null) {
+            continue;
+          }
+
+          Page p = pageReader.readPage();
+
           VectorHolder holder = valueVectorMap.get(field.getFieldId());
 
-
-          // add check here for fixed length column, by checking the value vector, or field schema,
-          // not sure what will be easier but right now all I can think to do is a chain of instanceof checks...
-          if (true){
+          int recordsRead = newRecordCount;
+          if (descriptor.getType() != PrimitiveType.PrimitiveTypeName.BINARY) {
             boolean finishedLastPage = previousPageFinished;
             int readStart = 0, readEnd = 0, typeLength = 0;
-            while (newRecordCount < recordsToRead && p != null) {
+            while (recordsRead < recordsToRead && p != null) {
               readStart = 0;
-              readEnd = Integer.MAX_VALUE;
-              typeLength = 0;
               currBytes = p.getBytes();
               typeLength = getTypeLengthInBytes(descriptor.getType());
-              if (! finishedLastPage){
+
+              if (!finishedLastPage) {
                 readStart = typeLength * recordsReadFromPage;
                 finishedLastPage = true;
               }
+
               // read to the end of the page, or the end of the last value that will fit in the batch
-              readEnd = Math.min(p.getValueCount() * typeLength, (recordsToRead - newRecordCount) * typeLength) ;
+              readEnd = Math.min(p.getValueCount() * typeLength, (recordsToRead - newRecordCount) * typeLength);
 
               holder.getValueVector().data.writeBytes(currBytes.toByteArray(), readStart, readEnd);
-              newRecordCount += (readEnd - readStart) / typeLength;
+              recordsRead += (readEnd - readStart) / typeLength;
               p = pageReader.readPage();
             }
+
+            //FIXME: (Tim) This flag is a global flag but each individual column has its own page.
+            // Can we safely assume all column pages have the exact same length of bytes?
+            // If that's true than we just need one index and one flag.
+            // If not we need tracking for each column.
+
+
             // the last page of this row group was read
-            if (p == null){
-              previousPageFinished = true;
+            if (p == null) {
+              previousPageFinished = true; // FIXME: (Tim) Not all pages have finished reading their pages? Just one of them in this case right?
             }
             // the end of the page was not reached with the last read, set up for the next read
-            else if (readEnd < p.getValueCount() * typeLength){
+            else if (readEnd < p.getValueCount() * typeLength) {
               previousPageFinished = false;
               recordsReadFromPage = (readEnd - readStart) / typeLength;
-            }
-            else{
+            } else {
               previousPageFinished = true;
             }
-          }
-          else{ // TODO - variable length columns
+          } else { // TODO - variable length columns
 
           }
         }
