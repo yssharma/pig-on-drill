@@ -51,7 +51,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ParquetRecordReader implements RecordReader {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ParquetRecordReader.class);
-  private static final int DEFAULT_LENGTH = 256 * 1024; // 256kb
+  private static final int DEFAULT_LENGTH_IN_BITS = 256 * 1024 * 8; // 256kb
   private static final String SEPERATOR = System.getProperty("file.separator");
 
 
@@ -67,7 +67,7 @@ public class ParquetRecordReader implements RecordReader {
   // when next() is called the next row group can then be read from the parquet file for processing
   private PageReadStore currentRowGroup;
 
-  private int byteWidthAllFixedFields;
+  private int bitWidthAllFixedFields;
   private boolean allFieldsFixedLength;
   private boolean previousPageFinished;
   private int recordsPerBatch;
@@ -98,7 +98,7 @@ public class ParquetRecordReader implements RecordReader {
 
   public ParquetRecordReader(FragmentContext fragmentContext,
                              ParquetFileReader reader, ParquetMetadata footer) {
-    this(fragmentContext, DEFAULT_LENGTH, reader, footer);
+    this(fragmentContext, DEFAULT_LENGTH_IN_BITS, reader, footer);
   }
 
 
@@ -120,20 +120,15 @@ public class ParquetRecordReader implements RecordReader {
    */
   public int getTypeLengthInBytes(PrimitiveType.PrimitiveTypeName type) {
     switch (type) {
-      case INT64:
-        return 8;
-      case INT32:
-        return 4;
-      case BOOLEAN:
-        return 1;
-      case FLOAT:
-        return 4;
-      case DOUBLE:
-        return 8;
-      case INT96:
-        return 16;
-      default: // binary, fixed length byte array
-        return -1;
+      case INT64:   return 64;
+      case INT32:   return 32;
+      case BOOLEAN: return 1;
+      case FLOAT:   return 32;
+      case DOUBLE:  return 64;
+      case INT96:   return 96;
+      // binary, fixed length byte array
+      default:
+         throw new IllegalStateException("Length cannot be determined for type " + type);
     }
   }
 
@@ -161,7 +156,7 @@ public class ParquetRecordReader implements RecordReader {
 //          if (column.getType() != PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY){
 //              byteWidthAllFixedFields += column.getType().getWidth()
 //          }
-        byteWidthAllFixedFields += getTypeLengthInBytes(column.getType());
+        bitWidthAllFixedFields += getTypeLengthInBytes(column.getType());
       } else {
         allFieldsFixedLength = false;
       }
@@ -179,7 +174,7 @@ public class ParquetRecordReader implements RecordReader {
 
     if (allFieldsFixedLength) {
       try {
-        recordsPerBatch = DEFAULT_LENGTH / byteWidthAllFixedFields;
+        recordsPerBatch = DEFAULT_LENGTH_IN_BITS / bitWidthAllFixedFields;
         for (Field field : currentSchema.getFields()) {
           getOrCreateVectorHolder(field, 0, TypeHelper.getSize(field.getFieldType()));
         }
@@ -234,7 +229,7 @@ public class ParquetRecordReader implements RecordReader {
       } else {
 
         //loop through variable length data to find the maximum records that will fit in this batch
-        // this will be a bit annoying if we want to loop though row groups, then pages and then individual variable
+        // this will be a bit annoying if we want to loop though row groups, columns, pages and then individual variable
         // length values...
         // jacques believes that variable length fields will be encoded as |length|value|length|value|...
         // cannot find more information on this right now, will keep looking
@@ -295,7 +290,8 @@ public class ParquetRecordReader implements RecordReader {
 
             // the last page of this row group was read
             if (p == null) {
-              previousPageFinished = true; // FIXME: (Tim) Not all pages have finished reading their pages? Just one of them in this case right?
+              previousPageFinished = true;
+              // FIXME: (Tim) Not all pages have finished reading their pages? Just one of them in this case right?
             }
             // the end of the page was not reached with the last read, set up for the next read
             else if (readEnd < p.getValueCount() * typeLength) {
@@ -316,11 +312,13 @@ public class ParquetRecordReader implements RecordReader {
     }
   }
 
-  static SchemaDefProtos.MajorType toMajorType(PrimitiveType.PrimitiveTypeName primitiveTypeName, SchemaDefProtos.DataMode mode) {
+  static SchemaDefProtos.MajorType toMajorType(PrimitiveType.PrimitiveTypeName primitiveTypeName,
+      SchemaDefProtos.DataMode mode) {
     return toMajorType(primitiveTypeName, 0, mode);
   }
 
-  static SchemaDefProtos.MajorType toMajorType(PrimitiveType.PrimitiveTypeName primitiveTypeName, int length, SchemaDefProtos.DataMode mode) {
+  static SchemaDefProtos.MajorType toMajorType(PrimitiveType.PrimitiveTypeName primitiveTypeName, int length,
+      SchemaDefProtos.DataMode mode) {
     switch (primitiveTypeName) {
       case BINARY:
         return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.VARBINARY4).setMode(mode).build();
@@ -334,12 +332,15 @@ public class ParquetRecordReader implements RecordReader {
         return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.FLOAT4).setMode(mode).build();
       case DOUBLE:
         return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.FLOAT8).setMode(mode).build();
-      // Both of these are not supported by the parquet library yet (7/3/13), but they are declared here for when they are implemented
+      // Both of these are not supported by the parquet library yet (7/3/13),
+      // but they are declared here for when they are implemented
       case INT96:
-        return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.FIXEDBINARY).setWidth(12).setMode(mode).build();
+        return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.FIXEDBINARY).setWidth(12)
+            .setMode(mode).build();
       case FIXED_LEN_BYTE_ARRAY:
         checkArgument(length > 0, "A length greater than zero must be provided for a FixedBinary type.");
-        return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.FIXEDBINARY).setWidth(length).setMode(mode).build();
+        return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.FIXEDBINARY)
+            .setWidth(length).setMode(mode).build();
       default:
         throw new UnsupportedOperationException("Type not supported: " + primitiveTypeName);
     }

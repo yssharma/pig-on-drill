@@ -115,11 +115,11 @@ public class ParquetRecordReaderTest {
       messageSchema += " required " + fieldInfo[0] + " " + fieldInfo[1] + ";";
     }
     // remove the last semicolon, java really needs a join method for strings...
+    // TODO - nvm apparently it requires a semicolon after every field decl, might want to file a bug
     //messageSchema = messageSchema.substring(0, messageSchema.length() - 1);
     messageSchema += "}";
 
     MessageType schema = MessageTypeParser.parseMessageType(messageSchema);
-
 
     CompressionCodecName codec = CompressionCodecName.UNCOMPRESSED;
     ParquetFileWriter w = new ParquetFileWriter(configuration, schema, path);
@@ -131,23 +131,52 @@ public class ParquetRecordReaderTest {
       ColumnDescriptor c1 = schema.getColumnDescription(path1);
 
       w.startColumn(c1, 5, codec);
-      long c1Starts = w.getPos();
-      byte[] bytes = new byte[(Integer) fieldInfo[2]];
       for (int i = 0; i < 1000; i++) {
-        w.writeDataPage(2, 4, BytesInput.from(toByta(fieldInfo[3])), BIT_PACKED, BIT_PACKED, PLAIN);
-        w.writeDataPage(2, 4, BytesInput.from(toByta(fieldInfo[4])), BIT_PACKED, BIT_PACKED, PLAIN);
-        w.writeDataPage(2, 4, BytesInput.from(toByta(fieldInfo[5])), BIT_PACKED, BIT_PACKED, PLAIN);
+        w.writeDataPage(1, (int) fieldInfo[2], BytesInput.from(toByta(fieldInfo[3])), BIT_PACKED, BIT_PACKED, PLAIN);
+        w.writeDataPage(1, (int) fieldInfo[2], BytesInput.from(toByta(fieldInfo[4])), BIT_PACKED, BIT_PACKED, PLAIN);
+        w.writeDataPage(1, (int) fieldInfo[2], BytesInput.from(toByta(fieldInfo[5])), BIT_PACKED, BIT_PACKED, PLAIN);
       }
       w.endColumn();
-      long c1Ends = w.getPos();
     }
 
     w.endBlock();
     w.end(new HashMap<String, String>());
+  }
 
+  @Test
+  public void parquetTest(@Injectable final FragmentContext context) throws IOException, ExecutionSetupException {
+    new Expectations() {
+      {
+        context.getAllocator();
+        returns(new DirectBufferAllocator());
+      }
+    };
+
+    //
+    MessageType schema = MessageTypeParser.parseMessageType("message m { required int64 b; }");
+    String[] path1 = {"b"};
+    ColumnDescriptor c1 = schema.getColumnDescription(path1);
+
+    File testFile = FileUtils.getResourceAsFile("/testParquetFile").getAbsoluteFile();
+    System.err.println(testFile.toPath().toString());
+    //testFile.delete();
+
+    Path path = new Path(testFile.toURI());
+    Configuration configuration = new Configuration();
     ParquetMetadata readFooter = ParquetFileReader.readFooter(configuration, path);
 
-    PrintFooter.main(new String[]{path.toString()});
+    ParquetFileReader parReader = new ParquetFileReader(configuration, path, Arrays.asList(
+        readFooter.getBlocks().get(0)), Arrays.asList(schema.getColumnDescription(path1)));
+    ParquetRecordReader pr = new ParquetRecordReader(context, parReader, readFooter);
+
+    MockOutputMutator mutator = new MockOutputMutator();
+    List<ValueVector.Base> addFields = mutator.getAddFields();
+    pr.setup(mutator);
+    while(pr.next() > 0){}
+
+    assertEquals(5, pr.next());
+    assertEquals(1, addFields.size());
+    assertEquals(0, pr.next());
   }
 
   public static byte[] toByta(Object data) {
@@ -304,42 +333,8 @@ public class ParquetRecordReaderTest {
     return byts;
   }
 
-  // above utility method found here: http://www.daniweb.com/software-development/java/code/216874/primitive-types-as-byte-arrays
-
-
-  @Test
-  public void parquetTest(@Injectable final FragmentContext context) throws IOException, ExecutionSetupException {
-    new Expectations() {
-      {
-        context.getAllocator();
-        returns(new DirectBufferAllocator());
-      }
-    };
-
-    //
-    MessageType schema = MessageTypeParser.parseMessageType("message m { required int64 b; }");
-    String[] path1 = {"b"};
-    ColumnDescriptor c1 = schema.getColumnDescription(path1);
-
-    File testFile = FileUtils.getResourceAsFile("/testParquetFile").getAbsoluteFile();
-    System.err.println(testFile.toPath().toString());
-    //testFile.delete();
-
-    Path path = new Path(testFile.toURI());
-    Configuration configuration = new Configuration();
-    ParquetMetadata readFooter = ParquetFileReader.readFooter(configuration, path);
-
-    ParquetFileReader parReader = new ParquetFileReader(configuration, path, Arrays.asList(
-        readFooter.getBlocks().get(0)), Arrays.asList(schema.getColumnDescription(path1)));
-    ParquetRecordReader pr = new ParquetRecordReader(context, parReader, readFooter);
-
-    MockOutputMutator mutator = new MockOutputMutator();
-    List<ValueVector.Base> addFields = mutator.getAddFields();
-    pr.setup(mutator);
-    assertEquals(5, pr.next());
-    assertEquals(1, addFields.size());
-    assertEquals(0, pr.next());
-  }
+  // above utility methods found here:
+  // http://www.daniweb.com/software-development/java/code/216874/primitive-types-as-byte-arrays
 
   private void validateFooters(final List<Footer> metadata) {
     logger.debug(metadata.toString());
@@ -356,7 +351,8 @@ public class ParquetRecordReaderTest {
     }
   }
 
-  private void validateContains(MessageType schema, PageReadStore pages, String[] path, int values, BytesInput bytes) throws IOException {
+  private void validateContains(MessageType schema, PageReadStore pages, String[] path, int values, BytesInput bytes)
+      throws IOException {
     PageReader pageReader = pages.getPageReader(schema.getColumnDescription(path));
     Page page = pageReader.readPage();
     assertEquals(values, page.getValueCount());
