@@ -29,6 +29,7 @@ import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.proto.SchemaDefProtos;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.SchemaBuilder;
 import org.apache.drill.exec.record.vector.TypeHelper;
 import org.apache.drill.exec.record.vector.ValueVector;
 import parquet.bytes.BytesInput;
@@ -62,8 +63,6 @@ public class ParquetRecordReader implements RecordReader {
   private boolean allFieldsFixedLength;
   private int recordsPerBatch;
 
-  private ParquetReadStatus parquetStatus;
-
   private class ColumnReadStatus{
     // Value Vector for this column
     VectorHolder valueVec;
@@ -85,16 +84,10 @@ public class ParquetRecordReader implements RecordReader {
     int valuesRead;
   }
 
-  private class ParquetReadStatus{
     // this class represents a row group, it is named poorly in the parquet library
     private PageReadStore currentRowGroup;
     private HashMap<MaterializedField, ColumnReadStatus> columns;
 
-
-    ParquetReadStatus(){
-      columns = new HashMap();
-    }
-  }
 
   // would only need this to compare schemas of different row groups
   //List<Footer> footers;
@@ -147,11 +140,12 @@ public class ParquetRecordReader implements RecordReader {
     outputMutator = output;
     schema = footer.getFileMetaData().getSchema();
     currentRowGroupIndex = -1;
-    parquetStatus = new ParquetReadStatus();
-    parquetStatus.currentRowGroup = null;
+    columns = new HashMap();
+    currentRowGroup = null;
 
     List<ColumnDescriptor> columns = schema.getColumns();
     allFieldsFixedLength = true;
+    SchemaBuilder builder = BatchSchema.newBuilder();
     for (int i = 0; i < columns.size(); ++i) {
       ColumnDescriptor column = columns.get(i);
 
@@ -170,15 +164,15 @@ public class ParquetRecordReader implements RecordReader {
       MaterializedField field = MaterializedField.create(new SchemaPath(toFieldName(column.getPath())),
           toMajorType(column.getType(), getDataMode(column)));
 
-      currentSchema.
-      descriptorMap.put(field.getFieldId(), column);
+      builder.addField(field);
     }
+    currentSchema = builder.build();
 
     if (allFieldsFixedLength) {
       try {
         recordsPerBatch = DEFAULT_LENGTH_IN_BITS / bitWidthAllFixedFields;
-        for (Field field : currentSchema.getFields()) {
-          getOrCreateVectorHolder(field, 0, TypeHelper.getSize(field.getFieldType()));
+        for (MaterializedField field : currentSchema) {
+          getOrCreateVectorHolder(field, TypeHelper.getSize(field.getType()));
         }
       } catch (SchemaChangeException e) {
         throw new DrillRuntimeException(e);
@@ -199,24 +193,27 @@ public class ParquetRecordReader implements RecordReader {
   }
 
   private void resetBatch() {
-    for (ObjectCursor<VectorHolder> holder : valueVectorMap.values()) {
-      holder.value.reset();
+    for (ColumnReadStatus column : columns.values()) {
+      column.valueVec.reset();
     }
   }
 
-  private VectorHolder getOrCreateVectorHolder(MaterializedField field, int parentFieldId, int allocateSize) throws SchemaChangeException {
-    if (!valueVectorMap.containsKey(field.getFieldId())) {
-      SchemaDefProtos.MajorType type = field.getFieldType();
-      int fieldId = field.getFieldId();
-      MaterializedField f = MaterializedField.create(new SchemaPath(field.getFieldName()), fieldId, parentFieldId, type);
+  // might want to update this to create an entire column read status and add it to the columns map
+  private ColumnReadStatus getOrCreateColumnStatus(MaterializedField field, int allocateSize) throws SchemaChangeException {
+    if (!columns.containsKey(field)) {
+      SchemaDefProtos.MajorType type = field.getType();
+      MaterializedField f = MaterializedField.create(new SchemaPath(field.getName()), type);
       ValueVector.Base v = TypeHelper.getNewVector(f, allocator);
       v.allocateNew(allocateSize);
-      VectorHolder holder = new VectorHolder(allocateSize, v);
+      ColumnReadStatus newCol = new ColumnReadStatus();
+      newCol.valueVec = new VectorHolder(allocateSize, v);
+      newCol.parquetColumnDescriptor =
+      columns.put(new )
       valueVectorMap.put(fieldId, holder);
       outputMutator.addField(fieldId, v);
       return holder;
     }
-    return valueVectorMap.lget();
+    return columns.get
   }
 
   @Override
@@ -246,9 +243,9 @@ public class ParquetRecordReader implements RecordReader {
 
         for (ColumnChunkMetaData column : footer.getBlocks().get(currentRowGroupIndex).getColumns()) {
 
-          Field field = checkNotNull(
-              currentSchema.getField(toFieldName(column.getPath()), 0), "Field not found: %s", column.getPath()
-          );
+//          Field field = checkNotNull(
+//              currentSchema.(toFieldName(column.getPath()), 0), "Field not found: %s", column.getPath()
+//          );
 
           ColumnDescriptor descriptor = descriptorMap.get(field.getFieldId());
 
