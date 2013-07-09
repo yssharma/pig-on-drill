@@ -40,12 +40,10 @@ public class MaterializedField implements Comparable<MaterializedField> {
     return new MaterializedField(def);
   }
   
-  public static MaterializedField create(SchemaPath path, int fieldId, int parentId, MajorType type) {
+  public static MaterializedField create(SchemaPath path, MajorType type) {
     FieldDef.Builder b = FieldDef.newBuilder();
-    b.setFieldId(fieldId);
     b.setMajorType(type);
     addSchemaPathToFieldDef(path, b);
-    b.setParentId(parentId);
     return create(b.build());
   }
 
@@ -88,10 +86,6 @@ public class MaterializedField implements Comparable<MaterializedField> {
 
   public int getWidth() {
     return def.getMajorType().getWidth();
-  }
-
-  public int getFieldId() {
-    return def.getFieldId();
   }
 
   public MajorType getType() {
@@ -151,8 +145,18 @@ public class MaterializedField implements Comparable<MaterializedField> {
 
   @Override
   public int compareTo(MaterializedField o) {
-    return Integer.compare(this.getFieldId(), o.getFieldId());
+    return getName().compareTo(o.getName());
   }
+
+  @Override
+  public int hashCode(){
+    return getName().hashCode();
+  }
+
+  public boolean equals(MaterializedField o) {
+    return getName().equals(o.getName());
+  }
+
 
   @Override
   public String toString() {

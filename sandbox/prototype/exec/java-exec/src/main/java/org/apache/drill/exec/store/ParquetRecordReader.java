@@ -27,10 +27,10 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.proto.SchemaDefProtos;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.vector.TypeHelper;
 import org.apache.drill.exec.record.vector.ValueVector;
-import org.apache.drill.exec.schema.*;
 import parquet.bytes.BytesInput;
 import parquet.column.ColumnDescriptor;
 import parquet.column.page.Page;
@@ -42,7 +42,9 @@ import parquet.hadoop.metadata.ParquetMetadata;
 import parquet.schema.MessageType;
 import parquet.schema.PrimitiveType;
 
+import javax.management.AttributeList;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -54,34 +56,45 @@ public class ParquetRecordReader implements RecordReader {
   private static final int DEFAULT_LENGTH_IN_BITS = 256 * 1024 * 8; // 256kb
   private static final String SEPERATOR = System.getProperty("file.separator");
 
-
-  private final IntObjectOpenHashMap<VectorHolder> valueVectorMap;
-  private final IntObjectOpenHashMap<ColumnDescriptor> descriptorMap;
-
   private ParquetFileReader parquetReader;
-
-  private SchemaIdGenerator generator;
-  private RecordSchema currentSchema;
-  // this class represents a row group, it is named poorly in the parquet library
-  // to signal that a RowGroup has finished being read, this will be assigned null
-  // when next() is called the next row group can then be read from the parquet file for processing
-  private PageReadStore currentRowGroup;
-
+  private BatchSchema currentSchema;
   private int bitWidthAllFixedFields;
   private boolean allFieldsFixedLength;
-  private boolean previousPageFinished;
   private int recordsPerBatch;
-  // records the number of records that have been read out of all of the current pages
-  // for fixed width fields that can be used to find the read position in next()
-  private int recordsReadFromPage;
+
+  private ParquetReadStatus parquetStatus;
+
+  private class ColumnReadStatus{
+    // Value Vector for this column
+    VectorHolder valueVec;
+    // column description from the parquet library
+    ColumnDescriptor parquetColumnDescriptor;
+    // status information on the current page
+    PageReadStatus pageReadStatus;
+  }
 
   // class to keep track of the read position of variable length columns
   private class PageReadStatus {
+    // store references to the pages that have been uncompressed, but not copied to ValueVectors yet
+    Page currentPage;
+
+    PageReader pageReader;
+    // read position in the last page in the queue
     int readPos;
+    // the number of values read out of the last page
+    int valuesRead;
   }
 
-  // stores the read statuses of the variable length columns
-  private IntObjectOpenHashMap<PageReadStatus> readStatuses;
+  private class ParquetReadStatus{
+    // this class represents a row group, it is named poorly in the parquet library
+    private PageReadStore currentRowGroup;
+    private HashMap<MaterializedField, ColumnReadStatus> columns;
+
+
+    ParquetReadStatus(){
+      columns = new HashMap();
+    }
+  }
 
   // would only need this to compare schemas of different row groups
   //List<Footer> footers;
@@ -107,9 +120,6 @@ public class ParquetRecordReader implements RecordReader {
     this.allocator = fragmentContext.getAllocator();
     this.batchSize = batchSize;
     this.footer = footer;
-    valueVectorMap = new IntObjectOpenHashMap<>();
-    descriptorMap = new IntObjectOpenHashMap<>();
-    readStatuses = new IntObjectOpenHashMap<>();
 
     parquetReader = reader;
   }
@@ -134,14 +144,11 @@ public class ParquetRecordReader implements RecordReader {
 
   @Override
   public void setup(OutputMutator output) throws ExecutionSetupException {
-    valueVectorMap.clear();
-    descriptorMap.clear();
     outputMutator = output;
     schema = footer.getFileMetaData().getSchema();
-    generator = new SchemaIdGenerator();
-    currentSchema = new ObjectSchema();
     currentRowGroupIndex = -1;
-    currentRowGroup = null;
+    parquetStatus = new ParquetReadStatus();
+    parquetStatus.currentRowGroup = null;
 
     List<ColumnDescriptor> columns = schema.getColumns();
     allFieldsFixedLength = true;
@@ -160,17 +167,12 @@ public class ParquetRecordReader implements RecordReader {
       } else {
         allFieldsFixedLength = false;
       }
-      Field field = new NamedField(
-          0,
-          generator,
-          "",
-          toFieldName(column.getPath()),
-          toMajorType(column.getType(), getDataMode(column))
-      );
-      currentSchema.addField(field);
+      MaterializedField field = MaterializedField.create(new SchemaPath(toFieldName(column.getPath())),
+          toMajorType(column.getType(), getDataMode(column)));
+
+      currentSchema.
       descriptorMap.put(field.getFieldId(), column);
     }
-
 
     if (allFieldsFixedLength) {
       try {
@@ -202,7 +204,7 @@ public class ParquetRecordReader implements RecordReader {
     }
   }
 
-  private VectorHolder getOrCreateVectorHolder(Field field, int parentFieldId, int allocateSize) throws SchemaChangeException {
+  private VectorHolder getOrCreateVectorHolder(MaterializedField field, int parentFieldId, int allocateSize) throws SchemaChangeException {
     if (!valueVectorMap.containsKey(field.getFieldId())) {
       SchemaDefProtos.MajorType type = field.getFieldType();
       int fieldId = field.getFieldId();
