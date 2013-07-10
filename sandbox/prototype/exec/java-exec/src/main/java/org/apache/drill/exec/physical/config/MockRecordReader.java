@@ -57,7 +57,7 @@ public class MockRecordReader implements RecordReader {
     assert context != null : "Context shouldn't be null.";
     if(type.getMode() != DataMode.REQUIRED) throw new UnsupportedOperationException();
     
-    MaterializedField f = MaterializedField.create(new SchemaPath(name), fieldId, 0, type);
+    MaterializedField f = MaterializedField.create(new SchemaPath(name), type);
     ValueVector.Base v;
     v = TypeHelper.getNewVector(f, context.getAllocator());
     v.allocateNew(length);

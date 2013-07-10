@@ -17,8 +17,9 @@
  ******************************************************************************/
 package org.apache.drill.exec.store;
 
-import com.carrotsearch.hppc.IntObjectOpenHashMap;
-import com.carrotsearch.hppc.cursors.ObjectCursor;
+import com.beust.jcommander.internal.Maps;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
@@ -43,11 +44,9 @@ import parquet.hadoop.metadata.ParquetMetadata;
 import parquet.schema.MessageType;
 import parquet.schema.PrimitiveType;
 
-import javax.management.AttributeList;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -67,7 +66,7 @@ public class ParquetRecordReader implements RecordReader {
     // Value Vector for this column
     VectorHolder valueVec;
     // column description from the parquet library
-    ColumnDescriptor parquetColumnDescriptor;
+    ColumnDescriptor columnDescriptor;
     // status information on the current page
     PageReadStatus pageReadStatus;
   }
@@ -86,7 +85,7 @@ public class ParquetRecordReader implements RecordReader {
 
   // this class represents a row group, it is named poorly in the parquet library
   private PageReadStore currentRowGroup;
-  private HashMap<MaterializedField, ColumnReadStatus> columns;
+  private Map<MaterializedField, ColumnReadStatus> columnsStatuses;
 
 
   // would only need this to compare schemas of different row groups
@@ -121,7 +120,7 @@ public class ParquetRecordReader implements RecordReader {
    * @param type a fixed length type from the parquet library enum
    * @return the length in bytes of the type
    */
-  public int getTypeLengthInBytes(PrimitiveType.PrimitiveTypeName type) {
+  public static int getTypeLengthInBytes(PrimitiveType.PrimitiveTypeName type) {
     switch (type) {
       case INT64:
         return 64;
@@ -146,16 +145,13 @@ public class ParquetRecordReader implements RecordReader {
     outputMutator = output;
     schema = footer.getFileMetaData().getSchema();
     currentRowGroupIndex = -1;
-    columns = new HashMap();
+    columnsStatuses = Maps.newHashMap();
     currentRowGroup = null;
 
     List<ColumnDescriptor> columns = schema.getColumns();
     allFieldsFixedLength = true;
     SchemaBuilder builder = BatchSchema.newBuilder();
-    for (int i = 0; i < columns.size(); ++i) {
-      ColumnDescriptor column = columns.get(i);
-
-
+    for (ColumnDescriptor column : columns) {
       // sum the lengths of all of the fixed length fields
       if (column.getType() != PrimitiveType.PrimitiveTypeName.BINARY) {
         // There is not support for the fixed binary type yet in parquet, leaving a task here as a reminder
@@ -177,8 +173,11 @@ public class ParquetRecordReader implements RecordReader {
     if (allFieldsFixedLength) {
       try {
         recordsPerBatch = DEFAULT_LENGTH_IN_BITS / bitWidthAllFixedFields;
+        int i = 0;
         for (MaterializedField field : currentSchema) {
-          getOrCreateVectorHolder(field, TypeHelper.getSize(field.getType()));
+          ColumnDescriptor column = columns.get(i);
+          getOrCreateColumnStatus(field, column, recordsPerBatch * TypeHelper.getSize(field.getType()));
+          i++;
         }
       } catch (SchemaChangeException e) {
         throw new DrillRuntimeException(e);
@@ -199,7 +198,7 @@ public class ParquetRecordReader implements RecordReader {
   }
 
   private void resetBatch() {
-    for (ColumnReadStatus column : columns.values()) {
+    for (ColumnReadStatus column : columnsStatuses.values()) {
       column.valueVec.reset();
     }
   }
@@ -212,9 +211,9 @@ public class ParquetRecordReader implements RecordReader {
     v.allocateNew(allocateSize);
     ColumnReadStatus newCol = new ColumnReadStatus();
     newCol.valueVec = new VectorHolder(allocateSize, v);
-    newCol.parquetColumnDescriptor = descriptor;
-    columns.put(field, newCol);
-    outputMutator.addField(fieldId, v);
+    newCol.columnDescriptor = descriptor;
+    columnsStatuses.put(field, newCol);
+    outputMutator.addField(0, v);
     return true;
   }
 
@@ -222,7 +221,7 @@ public class ParquetRecordReader implements RecordReader {
   // as the schema will only change between file or row groups, there is no need to check that a field exists
   // every time we want to access it
   private ColumnReadStatus getColumnStatus(MaterializedField field) {
-    return columns.get(field);
+    return columnsStatuses.get(field);
   }
 
   @Override
@@ -231,7 +230,6 @@ public class ParquetRecordReader implements RecordReader {
     int newRecordCount = 0;
     int recordsToRead = 0;
     try {
-
       if (allFieldsFixedLength) {
         recordsToRead = recordsPerBatch;
       } else {
@@ -248,65 +246,60 @@ public class ParquetRecordReader implements RecordReader {
         currentRowGroupIndex++;
       }
 
-      while (currentRowGroup != null && recordsToRead < recordsToRead) {
+      while (currentRowGroup != null && newRecordCount < recordsToRead) {
 
-        for (ColumnChunkMetaData column : footer.getBlocks().get(currentRowGroupIndex).getColumns()) {
+        for (final ColumnChunkMetaData column : footer.getBlocks().get(currentRowGroupIndex).getColumns()) {
+          final SchemaPath path = new SchemaPath(toFieldName(column.getPath()));
+          MaterializedField field = Iterables.find(currentSchema, new Predicate<MaterializedField>() {
+            @Override
+            public boolean apply(MaterializedField materializedField) {
+              return materializedField.matches(path);
+            }
+          });
 
-          MaterializedField field = checkNotNull(
-              currentSchema.(toFieldName(column.getPath()), 0), "Field not found: %s", column.getPath()
-          );
+          ColumnReadStatus columnReadStatus = columnsStatuses.get(field);
 
-          ColumnDescriptor descriptor = columns.get(field)
-
-          PageReader pageReader = currentRowGroup.getPageReader(descriptor);
-
-          if (pageReader == null) {
-            continue;
+          PageReadStatus pageReadStatus = columnReadStatus.pageReadStatus;
+          if(pageReadStatus.pageReader == null) {
+            pageReadStatus.pageReader = currentRowGroup.getPageReader(columnReadStatus.columnDescriptor);
+            if(pageReadStatus.pageReader == null) {
+              continue;
+            }
           }
 
-          Page p = pageReader.readPage();
-
-          VectorHolder holder = valueVectorMap.get(field.getFieldId());
+          if(pageReadStatus.currentPage == null) {
+            pageReadStatus.currentPage = pageReadStatus.pageReader.readPage();
+          }
 
           int recordsRead = newRecordCount;
-          if (descriptor.getType() != PrimitiveType.PrimitiveTypeName.BINARY) {
-            boolean finishedLastPage = previousPageFinished;
+          PrimitiveType.PrimitiveTypeName type = columnReadStatus.columnDescriptor.getType();
+          if (type != PrimitiveType.PrimitiveTypeName.BINARY) {
             int readStart = 0, readEnd = 0, typeLength = 0;
-            while (recordsRead < recordsToRead && p != null) {
-              readStart = 0;
-              currBytes = p.getBytes();
-              typeLength = getTypeLengthInBytes(descriptor.getType());
+            while (recordsRead < recordsToRead && pageReadStatus.currentPage != null) {
+              readStart = pageReadStatus.readPos;
+              currBytes = pageReadStatus.currentPage.getBytes();
+              typeLength = getTypeLengthInBytes(type);
 
-              if (!finishedLastPage) {
-                readStart = typeLength * recordsReadFromPage;
-                finishedLastPage = true;
-              }
+              //if (!finishedLastPage) {
+              //  readStart = typeLength * recordsReadFromPage;
+              //  finishedLastPage = true;
+              //}
 
               // read to the end of the page, or the end of the last value that will fit in the batch
-              readEnd = Math.min(p.getValueCount() * typeLength, (recordsToRead - newRecordCount) * typeLength);
+              readEnd = Math.min(pageReadStatus.currentPage.getValueCount() * typeLength,
+                  (recordsToRead - newRecordCount) * typeLength);
 
-              holder.getValueVector().data.writeBytes(currBytes.toByteArray(), readStart, readEnd);
-              recordsRead += (readEnd - readStart) / typeLength;
-              p = pageReader.readPage();
-            }
-
-            //FIXME: (Tim) This flag is a global flag but each individual column has its own page.
-            // Can we safely assume all column pages have the exact same length of bytes?
-            // If that's true than we just need one index and one flag.
-            // If not we need tracking for each column.
-
-
-            // the last page of this row group was read
-            if (p == null) {
-              previousPageFinished = true;
-              // FIXME: (Tim) Not all pages have finished reading their pages? Just one of them in this case right?
-            }
-            // the end of the page was not reached with the last read, set up for the next read
-            else if (readEnd < p.getValueCount() * typeLength) {
-              previousPageFinished = false;
-              recordsReadFromPage = (readEnd - readStart) / typeLength;
-            } else {
-              previousPageFinished = true;
+              columnReadStatus.valueVec.getValueVector().data.writeBytes(currBytes.toByteArray(), readStart, readEnd);
+              int curRecordsRead = (readEnd - readStart) / typeLength;
+              recordsRead += curRecordsRead;
+              if (readEnd >= currBytes.size()) {
+                pageReadStatus.currentPage = pageReadStatus.pageReader.readPage();
+                pageReadStatus.readPos = 0;
+                pageReadStatus.valuesRead = 0;
+              } else {
+                pageReadStatus.valuesRead += curRecordsRead;
+                pageReadStatus.readPos = readEnd + 1;
+              }
             }
           } else { // TODO - variable length columns
 
