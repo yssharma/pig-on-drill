@@ -63,7 +63,7 @@ public class ParquetRecordReader implements RecordReader {
   private boolean allFieldsFixedLength;
   private int recordsPerBatch;
 
-  private class ColumnReadStatus{
+  private class ColumnReadStatus {
     // Value Vector for this column
     VectorHolder valueVec;
     // column description from the parquet library
@@ -84,9 +84,9 @@ public class ParquetRecordReader implements RecordReader {
     int valuesRead;
   }
 
-    // this class represents a row group, it is named poorly in the parquet library
-    private PageReadStore currentRowGroup;
-    private HashMap<MaterializedField, ColumnReadStatus> columns;
+  // this class represents a row group, it is named poorly in the parquet library
+  private PageReadStore currentRowGroup;
+  private HashMap<MaterializedField, ColumnReadStatus> columns;
 
 
   // would only need this to compare schemas of different row groups
@@ -123,15 +123,21 @@ public class ParquetRecordReader implements RecordReader {
    */
   public int getTypeLengthInBytes(PrimitiveType.PrimitiveTypeName type) {
     switch (type) {
-      case INT64:   return 64;
-      case INT32:   return 32;
-      case BOOLEAN: return 1;
-      case FLOAT:   return 32;
-      case DOUBLE:  return 64;
-      case INT96:   return 96;
+      case INT64:
+        return 64;
+      case INT32:
+        return 32;
+      case BOOLEAN:
+        return 1;
+      case FLOAT:
+        return 32;
+      case DOUBLE:
+        return 64;
+      case INT96:
+        return 96;
       // binary, fixed length byte array
       default:
-         throw new IllegalStateException("Length cannot be determined for type " + type);
+        throw new IllegalStateException("Length cannot be determined for type " + type);
     }
   }
 
@@ -199,21 +205,24 @@ public class ParquetRecordReader implements RecordReader {
   }
 
   // might want to update this to create an entire column read status and add it to the columns map
-  private ColumnReadStatus getOrCreateColumnStatus(MaterializedField field, int allocateSize) throws SchemaChangeException {
-    if (!columns.containsKey(field)) {
-      SchemaDefProtos.MajorType type = field.getType();
-      MaterializedField f = MaterializedField.create(new SchemaPath(field.getName()), type);
-      ValueVector.Base v = TypeHelper.getNewVector(f, allocator);
-      v.allocateNew(allocateSize);
-      ColumnReadStatus newCol = new ColumnReadStatus();
-      newCol.valueVec = new VectorHolder(allocateSize, v);
-      newCol.parquetColumnDescriptor =
-      columns.put(new )
-      valueVectorMap.put(fieldId, holder);
-      outputMutator.addField(fieldId, v);
-      return holder;
-    }
-    return columns.get
+  private boolean getOrCreateColumnStatus(MaterializedField field, ColumnDescriptor descriptor, int allocateSize) throws SchemaChangeException {
+    SchemaDefProtos.MajorType type = field.getType();
+    MaterializedField f = MaterializedField.create(new SchemaPath(field.getName()), type);
+    ValueVector.Base v = TypeHelper.getNewVector(f, allocator);
+    v.allocateNew(allocateSize);
+    ColumnReadStatus newCol = new ColumnReadStatus();
+    newCol.valueVec = new VectorHolder(allocateSize, v);
+    newCol.parquetColumnDescriptor = descriptor;
+    columns.put(field, newCol);
+    outputMutator.addField(fieldId, v);
+    return true;
+  }
+
+  // created this method to remove extra logic in the method for creating a new valuevector
+  // as the schema will only change between file or row groups, there is no need to check that a field exists
+  // every time we want to access it
+  private ColumnReadStatus getColumnStatus(MaterializedField field) {
+    return columns.get(field);
   }
 
   @Override
@@ -243,15 +252,15 @@ public class ParquetRecordReader implements RecordReader {
 
         for (ColumnChunkMetaData column : footer.getBlocks().get(currentRowGroupIndex).getColumns()) {
 
-//          Field field = checkNotNull(
-//              currentSchema.(toFieldName(column.getPath()), 0), "Field not found: %s", column.getPath()
-//          );
+          MaterializedField field = checkNotNull(
+              currentSchema.(toFieldName(column.getPath()), 0), "Field not found: %s", column.getPath()
+          );
 
-          ColumnDescriptor descriptor = descriptorMap.get(field.getFieldId());
+          ColumnDescriptor descriptor = columns.get(field)
 
           PageReader pageReader = currentRowGroup.getPageReader(descriptor);
 
-          if(pageReader == null) {
+          if (pageReader == null) {
             continue;
           }
 
@@ -312,12 +321,12 @@ public class ParquetRecordReader implements RecordReader {
   }
 
   static SchemaDefProtos.MajorType toMajorType(PrimitiveType.PrimitiveTypeName primitiveTypeName,
-      SchemaDefProtos.DataMode mode) {
+                                               SchemaDefProtos.DataMode mode) {
     return toMajorType(primitiveTypeName, 0, mode);
   }
 
   static SchemaDefProtos.MajorType toMajorType(PrimitiveType.PrimitiveTypeName primitiveTypeName, int length,
-      SchemaDefProtos.DataMode mode) {
+                                               SchemaDefProtos.DataMode mode) {
     switch (primitiveTypeName) {
       case BINARY:
         return SchemaDefProtos.MajorType.newBuilder().setMinorType(SchemaDefProtos.MinorType.VARBINARY4).setMode(mode).build();
