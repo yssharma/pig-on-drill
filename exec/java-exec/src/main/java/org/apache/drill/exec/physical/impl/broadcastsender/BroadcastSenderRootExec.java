@@ -24,23 +24,29 @@ import org.apache.drill.exec.proto.ExecProtos;
 import org.apache.drill.exec.proto.GeneralRPCProtos;
 import org.apache.drill.exec.record.FragmentWritableBatch;
 import org.apache.drill.exec.record.RecordBatch;
-import org.apache.drill.exec.rpc.BaseRpcOutcomeListener;
+import org.apache.drill.exec.record.WritableBatch;
+import org.apache.drill.exec.rpc.DrillRpcFuture;
 import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.exec.rpc.bit.BitTunnel;
-import org.apache.drill.exec.work.foreman.ErrorHelper;
 
 import java.util.List;
 
 import static org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 
+/**
+ * Broadcast Sender broadcasts incoming batches to all receivers (one or more).
+ * This is useful in cases such as broadcast join where sending the entire table to join
+ * to all nodes is cheaper than merging and computing all the joins in the same node.
+ */
 public class BroadcastSenderRootExec implements RootExec {
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BroadcastSenderRootExec.class);
   private final FragmentContext context;
   private final BroadcastSender config;
   private final BitTunnel[] tunnels;
   private final ExecProtos.FragmentHandle handle;
   private volatile boolean ok;
   private final RecordBatch incoming;
-  private final StatusHandler statusHandler;
+  private final DrillRpcFuture[] responseFutures;
 
   public BroadcastSenderRootExec(FragmentContext context,
                                  RecordBatch incoming,
@@ -48,7 +54,6 @@ public class BroadcastSenderRootExec implements RootExec {
     this.ok = true;
     this.context = context;
     this.incoming = incoming;
-    this.statusHandler = new StatusHandler();
     this.config = config;
     this.handle = context.getHandle();
     List<DrillbitEndpoint> destinations = config.getDestinations();
@@ -56,6 +61,7 @@ public class BroadcastSenderRootExec implements RootExec {
     for(int i = 0; i < destinations.size(); ++i) {
       tunnels[i] = context.getCommunicator().getTunnel(destinations.get(i));
     }
+    responseFutures = new DrillRpcFuture[destinations.size()];
   }
 
   @Override
@@ -71,17 +77,24 @@ public class BroadcastSenderRootExec implements RootExec {
       case NONE:
         for (int i = 0; i < tunnels.length; ++i) {
           FragmentWritableBatch b2 = FragmentWritableBatch.getEmptyLast(handle.getQueryId(), handle.getMajorFragmentId(), handle.getMinorFragmentId(), config.getOppositeMajorFragmentId(), i);
-          tunnels[i].sendRecordBatch(statusHandler, context, b2);
+          responseFutures[i] = tunnels[i].sendRecordBatchAsync(context, b2);
         }
+
+        waitAllFutures(false);
         return false;
 
       case OK_NEW_SCHEMA:
       case OK:
+        WritableBatch writableBatch = incoming.getWritableBatch();
         for (int i = 0; i < tunnels.length; ++i) {
-          FragmentWritableBatch batch = new FragmentWritableBatch(false, handle.getQueryId(), handle.getMajorFragmentId(), handle.getMinorFragmentId(), config.getOppositeMajorFragmentId(), i, incoming.getWritableBatch());
-          tunnels[i].sendRecordBatch(statusHandler, context, batch);
+          FragmentWritableBatch batch = new FragmentWritableBatch(false, handle.getQueryId(), handle.getMajorFragmentId(), handle.getMinorFragmentId(), config.getOppositeMajorFragmentId(), i, writableBatch);
+          if(i > 0) {
+            writableBatch.retainBuffers();
+          }
+          responseFutures[i] = tunnels[i].sendRecordBatchAsync(context, batch);
         }
-        return true;
+
+        return waitAllFutures(true);
 
       case NOT_YET:
       default:
@@ -89,22 +102,30 @@ public class BroadcastSenderRootExec implements RootExec {
     }
   }
 
+  private boolean waitAllFutures(boolean haltOnError) {
+    for (DrillRpcFuture<?> responseFuture : responseFutures) {
+      try {
+        GeneralRPCProtos.Ack ack = (GeneralRPCProtos.Ack) responseFuture.checkedGet();
+        if(!ack.getOk()) {
+          ok = false;
+          if (haltOnError) {
+            return false;
+          }
+        }
+      } catch (RpcException e) {
+        logger.error("Error sending batch to receiver: " + e);
+        ok = false;
+        if (haltOnError) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
   @Override
   public void stop() {
       ok = false;
       incoming.kill();
-  }
-
-  private class StatusHandler extends BaseRpcOutcomeListener<GeneralRPCProtos.Ack> {
-    RpcException ex;
-
-    @Override
-    public void failed(RpcException ex) {
-      logger.error("Failure while sending data to user.", ex);
-      ErrorHelper.logAndConvertError(context.getIdentity(), "Failure while sending fragment to client.", ex, logger);
-      ok = false;
-      this.ex = ex;
-    }
-
   }
 }

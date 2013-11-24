@@ -27,20 +27,21 @@ import org.apache.drill.exec.proto.UserProtos;
 import org.apache.drill.exec.rpc.user.QueryResultBatch;
 import org.apache.drill.exec.server.Drillbit;
 import org.apache.drill.exec.server.RemoteServiceSet;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 
-public class TestSingleBroadcastExchange extends PopUnitTestBase {
+public class TestBroadcastExchange extends PopUnitTestBase {
   @Test
   public void TestSingleBroadcastExchangeWithTwoScans() throws Exception {
     RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
 
     try(Drillbit bit1 = new Drillbit(CONFIG, serviceSet);
         Drillbit bit2 = new Drillbit(CONFIG, serviceSet);
-        DrillClient client = new DrillClient(CONFIG, serviceSet.getCoordinator());) {
+        DrillClient client = new DrillClient(CONFIG, serviceSet.getCoordinator())) {
 
       bit1.run();
       bit2.run();
@@ -57,6 +58,30 @@ public class TestSingleBroadcastExchange extends PopUnitTestBase {
           count += b.getHeader().getRowCount();
       }
       assertEquals(25, count);
+    }
+  }
+
+  @Test
+  public void TestMultipleSendLocationBroadcastExchange() throws Exception {
+    RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
+
+    try(Drillbit bit1 = new Drillbit(CONFIG, serviceSet);
+        Drillbit bit2 = new Drillbit(CONFIG, serviceSet);
+        DrillClient client = new DrillClient(CONFIG, serviceSet.getCoordinator())) {
+
+      bit1.run();
+      bit2.run();
+      client.connect();
+
+      String physicalPlan = Files.toString(
+          FileUtils.getResourceAsFile("/sender/broadcast_exchange_long_run.json"), Charsets.UTF_8);
+      List<QueryResultBatch> results = client.runQuery(UserProtos.QueryType.PHYSICAL, physicalPlan);
+      int count = 0;
+      for(QueryResultBatch b : results) {
+        if (b.getHeader().getRowCount() != 0)
+          count += b.getHeader().getRowCount();
+      }
+      System.out.println(count);
     }
   }
 }

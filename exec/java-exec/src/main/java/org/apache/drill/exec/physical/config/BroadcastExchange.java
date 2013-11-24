@@ -20,8 +20,6 @@ package org.apache.drill.exec.physical.config;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.Lists;
 import org.apache.drill.common.exceptions.PhysicalOperatorSetupException;
 import org.apache.drill.exec.physical.base.AbstractExchange;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
@@ -33,22 +31,20 @@ import java.util.List;
 
 import static org.apache.drill.exec.proto.CoordinationProtos.*;
 
-@JsonTypeName("single-broadcast-exchange")
-public class SingleBroadcastExchange extends AbstractExchange {
+@JsonTypeName("broadcast-exchange")
+public class BroadcastExchange extends AbstractExchange {
 
-  private DrillbitEndpoint senderLocation;
+  private List<DrillbitEndpoint> senderLocations;
   private List<DrillbitEndpoint> receiverLocations;
 
   @JsonCreator
-  public SingleBroadcastExchange(@JsonProperty("child") PhysicalOperator child) {
+  public BroadcastExchange(@JsonProperty("child") PhysicalOperator child) {
     super(child);
   }
 
   @Override
   protected void setupSenders(List<DrillbitEndpoint> senderLocations) throws PhysicalOperatorSetupException {
-    if (senderLocations.size() != 1)
-      throw new PhysicalOperatorSetupException("SingleBroadcastExchange only supports a single sender endpoint");
-    senderLocation = Iterators.getOnlyElement(senderLocations.iterator());
+    this.senderLocations = senderLocations;
   }
 
   @Override
@@ -58,17 +54,17 @@ public class SingleBroadcastExchange extends AbstractExchange {
 
   @Override
   protected PhysicalOperator getNewWithChild(PhysicalOperator child) {
-    return new SingleBroadcastExchange(child);
+    return new BroadcastExchange(child);
   }
 
   @Override
   public Sender getSender(int minorFragmentId, PhysicalOperator child) throws PhysicalOperatorSetupException {
-    return new BroadcastSender(minorFragmentId, child, receiverLocations);
+    return new BroadcastSender(receiverMajorFragmentId, child, receiverLocations);
   }
 
   @Override
   public Receiver getReceiver(int minorFragmentId) {
-    return new RandomReceiver(senderMajorFragmentId, Lists.newArrayList(senderLocation));
+    return new RandomReceiver(senderMajorFragmentId, senderLocations);
   }
 
   @Override
