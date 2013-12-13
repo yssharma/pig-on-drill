@@ -17,18 +17,24 @@
  */
 package org.apache.drill.exec.physical.impl.join;
 
-import org.apache.drill.exec.compile.TemplateClassDefinition;
-import org.apache.drill.exec.exception.SchemaChangeException;
+import com.google.common.base.Preconditions;
+import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.common.logical.data.Join;
 import org.apache.drill.exec.ops.FragmentContext;
-import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.physical.config.HashJoin;
+import org.apache.drill.exec.physical.impl.BatchCreator;
+import org.apache.drill.exec.record.RecordBatch;
 
+import java.util.List;
 
-public interface JoinWorker {
-  
-  public static enum JoinOutcome {
-    NO_MORE_DATA, BATCH_RETURNED, SCHEMA_CHANGED, WAITING, FAILURE;
+public class HashJoinCreator implements BatchCreator<HashJoin> {
+  @Override
+  public RecordBatch getBatch(FragmentContext context, HashJoin config, List<RecordBatch> children) throws ExecutionSetupException {
+    Preconditions.checkArgument(children.size() == 2);
+    if (config.getJoinType() == Join.JoinType.RIGHT) {
+      return new HashJoinBatch(config.flipIfRight(), context, children.get(1), children.get(0));
+    } else {
+      return new HashJoinBatch(config, context, children.get(0), children.get(1));
+    }
   }
-
-  public void setupJoin(FragmentContext context, JoinStatus status, VectorContainer outgoing) throws SchemaChangeException;
-  public boolean doJoin(JoinStatus status);
 }

@@ -17,18 +17,16 @@
  */
 package org.apache.drill.exec.physical.impl.join;
 
+import org.apache.drill.common.logical.data.Join;
 import org.apache.drill.exec.compile.TemplateClassDefinition;
 import org.apache.drill.exec.exception.SchemaChangeException;
-import org.apache.drill.exec.ops.FragmentContext;
-import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.physical.config.HashJoin;
+import org.apache.drill.exec.physical.config.MergeJoinPOP;
 
+public abstract class HashJoinTemplate implements JoinWorker {
+  public static TemplateClassDefinition<JoinWorker> TEMPLATE_DEFINITION = new TemplateClassDefinition<>(JoinWorker.class, HashJoinTemplate.class);
 
-public interface JoinWorker {
-  
-  public static enum JoinOutcome {
-    NO_MORE_DATA, BATCH_RETURNED, SCHEMA_CHANGED, WAITING, FAILURE;
+  public final boolean doJoin(final JoinStatus status) {
+    return false;
   }
-
-  public void setupJoin(FragmentContext context, JoinStatus status, VectorContainer outgoing) throws SchemaChangeException;
-  public boolean doJoin(JoinStatus status);
 }

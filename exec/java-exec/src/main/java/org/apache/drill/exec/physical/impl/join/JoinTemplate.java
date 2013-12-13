@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.join;
 import javax.inject.Named;
 
 import org.apache.drill.common.logical.data.Join;
+import org.apache.drill.exec.compile.TemplateClassDefinition;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.config.MergeJoinPOP;
@@ -74,6 +75,7 @@ import org.apache.drill.exec.record.VectorContainer;
  *   - this is required since code may be regenerated before completion of an outgoing record batch.
  */
 public abstract class JoinTemplate implements JoinWorker {
+  public static TemplateClassDefinition<JoinWorker> TEMPLATE_DEFINITION = new TemplateClassDefinition<>(JoinWorker.class, JoinTemplate.class);
 
   @Override
   public void setupJoin(FragmentContext context, JoinStatus status, VectorContainer outgoing) throws SchemaChangeException {

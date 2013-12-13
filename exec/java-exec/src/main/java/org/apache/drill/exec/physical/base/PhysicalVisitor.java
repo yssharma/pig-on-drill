@@ -58,4 +58,6 @@ public interface PhysicalVisitor<RETURN, EXTRA, EXCEP extends Throwable> {
   public RETURN visitUnionExchange(UnionExchange op, EXTRA value) throws EXCEP;
   
   public RETURN visitIteratorValidator(IteratorValidator op, EXTRA value) throws EXCEP;
+
+  public RETURN visitHashJoin(HashJoin join, EXTRA value) throws EXCEP;
 }
