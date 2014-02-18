@@ -17,13 +17,8 @@
  */
 package org.apache.drill.exec.planner.sql;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import com.google.common.collect.Sets;
-import org.apache.drill.exec.expr.fn.DrillFuncHolder;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Lists;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.eigenbase.sql.SqlFunctionCategory;
 import org.eigenbase.sql.SqlIdentifier;
@@ -32,8 +27,7 @@ import org.eigenbase.sql.SqlOperatorTable;
 import org.eigenbase.sql.SqlSyntax;
 import org.eigenbase.sql.fun.SqlStdOperatorTable;
 
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.Lists;
+import java.util.List;
 
 public class DrillOperatorTable extends SqlStdOperatorTable {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillOperatorTable.class);

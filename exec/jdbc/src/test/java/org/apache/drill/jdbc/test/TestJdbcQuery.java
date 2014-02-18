@@ -328,7 +328,7 @@ public class TestJdbcQuery extends JdbcTestQueryBase{
             "L_UTF8=5\n"
        );
   }
- 
+
   @Test
   public void testTimeIntervalAddOverflow() throws Exception {
     JdbcAssert.withNoDefaultSchema()

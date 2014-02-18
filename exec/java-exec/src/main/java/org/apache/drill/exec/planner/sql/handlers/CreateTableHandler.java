@@ -36,6 +36,7 @@ import org.apache.drill.exec.planner.types.DrillFixedRelDataTypeImpl;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.eigenbase.rel.RelNode;
 import org.eigenbase.relopt.RelOptUtil;
+import org.eigenbase.relopt.hep.HepPlanner;
 import org.eigenbase.reltype.RelDataType;
 import org.eigenbase.sql.SqlNode;
 
@@ -44,8 +45,8 @@ import java.util.List;
 
 public class CreateTableHandler extends DefaultSqlHandler {
 
-  public CreateTableHandler(Planner planner, QueryContext context) {
-    super(planner, context);
+  public CreateTableHandler(HepPlanner hepPlanner, Planner planner, QueryContext context) {
+    super(hepPlanner, planner, context);
   }
 
   @Override

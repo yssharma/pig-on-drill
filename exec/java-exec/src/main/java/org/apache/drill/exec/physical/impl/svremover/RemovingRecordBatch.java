@@ -97,7 +97,7 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
   }
 
   @Override
-  protected void doWork() {
+  protected IterOutcome doWork() {
     int incomingRecordCount = incoming.getRecordCount();
     int copiedRecords = copier.copyRecords(0, incomingRecordCount);
 
@@ -131,6 +131,7 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
         incomingRecordCount,
         incomingRecordCount - remainderIndex,
         incoming.getSchema());
+    return IterOutcome.OK;
   }
 
   private void handleRemainder() {

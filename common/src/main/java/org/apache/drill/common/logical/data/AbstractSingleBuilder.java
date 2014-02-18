@@ -36,6 +36,6 @@ public abstract class AbstractSingleBuilder<T extends SingleInputOperator, X ext
     return (X) this;
   }
   
-  public abstract T internalBuild();
+  protected abstract T internalBuild();
 
 }

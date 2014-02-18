@@ -101,7 +101,7 @@ public class TraceRecordBatch extends AbstractSingleRecordBatch<Trace> {
    * this record batch to a log file.
    */
   @Override
-  protected void doWork() {
+  protected IterOutcome doWork() {
 
     boolean incomingHasSv2 = incoming.getSchema().getSelectionVectorMode() == SelectionVectorMode.TWO_BYTE;
     if (incomingHasSv2) {
@@ -122,6 +122,7 @@ public class TraceRecordBatch extends AbstractSingleRecordBatch<Trace> {
     if (incomingHasSv2) {
       sv = wrap.getSv2();
     }
+    return IterOutcome.OK;
   }
 
   @Override

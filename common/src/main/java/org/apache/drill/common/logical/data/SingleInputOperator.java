@@ -42,8 +42,6 @@ public abstract class SingleInputOperator extends LogicalOperatorBase {
     this.input = input;
     input.registerAsSubscriber(this);
   }
-
-  
   @Override
   public Iterator<LogicalOperator> iterator() {
     return Iterators.singletonIterator(input);

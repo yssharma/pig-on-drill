@@ -28,12 +28,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
 @JsonTypeName("limit")
-public class Limit extends AbstractSingle {
+public class LimitPOP extends AbstractSingle {
   private final Integer first;
   private final Integer last;
 
   @JsonCreator
-  public Limit(@JsonProperty("child") PhysicalOperator child, @JsonProperty("first") Integer first, @JsonProperty("last") Integer last) {
+  public LimitPOP(@JsonProperty("child") PhysicalOperator child, @JsonProperty("first") Integer first, @JsonProperty("last") Integer last) {
     super(child);
     this.first = first;
     this.last = last;
@@ -49,7 +49,7 @@ public class Limit extends AbstractSingle {
 
   @Override
   protected PhysicalOperator getNewWithChild(PhysicalOperator child) {
-    return new Limit(child, first, last);
+    return new LimitPOP(child, first, last);
   }
 
   @Override

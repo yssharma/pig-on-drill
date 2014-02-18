@@ -21,6 +21,7 @@ import net.hydromatic.optiq.tools.Planner;
 import org.apache.drill.exec.ops.QueryContext;
 import org.apache.drill.exec.planner.sql.handlers.DefaultSqlHandler;
 import org.apache.drill.exec.planner.sql.handlers.AbstractSqlHandler;
+import org.eigenbase.relopt.hep.HepPlanner;
 import org.eigenbase.sql.SqlCall;
 import org.eigenbase.sql.parser.SqlParserPos;
 
@@ -33,7 +34,7 @@ public abstract class DrillSqlCall extends SqlCall {
     super(pos);
   }
 
-  public AbstractSqlHandler getSqlHandler(Planner planner, QueryContext context) {
-    return new DefaultSqlHandler(planner, context);
+  public AbstractSqlHandler getSqlHandler(HepPlanner hepPlanner, Planner planner, QueryContext context) {
+    return new DefaultSqlHandler(hepPlanner, planner, context);
   }
 }

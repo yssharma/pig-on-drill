@@ -116,6 +116,7 @@ public class TestSimpleLimit extends ExecTest {
     if(context.getFailureCause() != null){
       throw context.getFailureCause();
     }
+
     assertTrue(!context.isFailed());
   }
 

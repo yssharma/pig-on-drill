@@ -22,7 +22,7 @@ import java.util.List;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.OutOfMemoryException;
 import org.apache.drill.exec.ops.FragmentContext;
-import org.apache.drill.exec.physical.config.Limit;
+import org.apache.drill.exec.physical.config.LimitPOP;
 import org.apache.drill.exec.record.AbstractSingleRecordBatch;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.RecordBatch;
@@ -32,7 +32,7 @@ import org.apache.drill.exec.record.selection.SelectionVector2;
 
 import com.google.common.collect.Lists;
 
-public class LimitRecordBatch extends AbstractSingleRecordBatch<Limit> {
+public class LimitRecordBatch extends AbstractSingleRecordBatch<LimitPOP> {
 
   private SelectionVector2 outgoingSv;
   private SelectionVector2 incomingSv;
@@ -42,7 +42,7 @@ public class LimitRecordBatch extends AbstractSingleRecordBatch<Limit> {
   private boolean skipBatch;
   List<TransferPair> transfers = Lists.newArrayList();
 
-  public LimitRecordBatch(Limit popConfig, FragmentContext context, RecordBatch incoming) throws OutOfMemoryException {
+  public LimitRecordBatch(LimitPOP popConfig, FragmentContext context, RecordBatch incoming) throws OutOfMemoryException {
     super(popConfig, context, incoming);
     outgoingSv = new SelectionVector2(oContext.getAllocator());
     recordsToSkip = popConfig.getFirst();
@@ -108,7 +108,7 @@ public class LimitRecordBatch extends AbstractSingleRecordBatch<Limit> {
   }
 
   @Override
-  protected void doWork() {
+  protected IterOutcome doWork() {
     for(TransferPair tp : transfers) {
       tp.transfer();
     }
@@ -125,6 +125,8 @@ public class LimitRecordBatch extends AbstractSingleRecordBatch<Limit> {
        limitWithNoSV(recordCount);
       }
     }
+
+    return IterOutcome.OK;
   }
 
   private void limitWithNoSV(int recordCount) {

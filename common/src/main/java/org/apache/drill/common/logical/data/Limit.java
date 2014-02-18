@@ -54,25 +54,7 @@ public class Limit extends SingleInputOperator {
   }
 
   @Override
-  public NodeBuilder nodeBuilder() {
-    return new LimitNodeBuilder();  //To change body of implemented methods use File | Settings | File Templates.
-  }
-
-  @Override
   public Iterator<LogicalOperator> iterator() {
     return Iterators.singletonIterator(getInput());
-  }
-
-  public static class LimitNodeBuilder implements NodeBuilder<Limit> {
-
-    @Override
-    public ObjectNode convert(ObjectMapper mapper, Limit operator, Integer inputId) {
-      ObjectNode limitNode = mapper.createObjectNode();
-      limitNode.put("op", "limit");
-      limitNode.put("input", inputId);
-      limitNode.put("first", operator.first);
-      limitNode.put("last", operator.last);
-      return limitNode;
-    }
   }
 }

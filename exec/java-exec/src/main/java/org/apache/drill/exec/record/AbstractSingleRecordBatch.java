@@ -28,6 +28,7 @@ public abstract class AbstractSingleRecordBatch<T extends PhysicalOperator> exte
 
   protected final RecordBatch incoming;
   private boolean first = true;
+  protected boolean done = false;
   protected boolean outOfMemory = false;
 
   public AbstractSingleRecordBatch(T popConfig, FragmentContext context, RecordBatch incoming) throws OutOfMemoryException {
@@ -42,6 +43,11 @@ public abstract class AbstractSingleRecordBatch<T extends PhysicalOperator> exte
 
   @Override
   public IterOutcome innerNext() {
+    // Short circuit if record batch has already sent all data and is done
+    if (done) {
+      return IterOutcome.NONE;
+    }
+
     IterOutcome upstream = next(incoming);
     if (!first && upstream == IterOutcome.OK && incoming.getRecordCount() == 0) {
       do {
@@ -99,5 +105,5 @@ public abstract class AbstractSingleRecordBatch<T extends PhysicalOperator> exte
   }
 
   protected abstract void setupNewSchema() throws SchemaChangeException;
-  protected abstract void doWork();
+  protected abstract IterOutcome doWork();
 }

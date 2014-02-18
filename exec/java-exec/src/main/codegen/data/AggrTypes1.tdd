@@ -96,7 +96,19 @@
       {inputType: "Interval", outputType: "Interval", runningType: "Interval", major: "Date", initialValue: "0"},
       {inputType: "NullableInterval", outputType: "Interval", runningType: "Interval", major: "Date", initialValue: "0"}
      ]
-   }, 
+   },
+   {className: "Sum0", funcName: "$sum0", types: [
+          {inputType: "NullableBit", outputType: "NullableBit", runningType: "Bit", major: "Numeric"},
+          {inputType: "BigInt", outputType: "NullableBigInt", runningType: "BigInt", major: "Numeric"},
+          {inputType: "Int", outputType: "NullableBigInt", runningType: "BigInt", major: "Numeric"},
+          {inputType: "NullableInt", outputType: "NullableBigInt", runningType: "BigInt", major: "Numeric"},
+          {inputType: "NullableBigInt", outputType: "NullableBigInt", runningType: "BigInt", major: "Numeric"},
+          {inputType: "Float4", outputType: "NullableFloat4", runningType: "Float4", major: "Numeric"},
+          {inputType: "NullableFloat4", outputType: "NullableFloat4", runningType: "Float4", major: "Numeric"},
+          {inputType: "Float8", outputType: "NullableFloat8", runningType: "Float8", major: "Numeric"}
+          {inputType: "NullableFloat8", outputType: "NullableFloat8", runningType: "Float8", major: "Numeric"}
+         ]
+   },
    {className: "Count", funcName: "count", types: [
       {inputType: "Bit", outputType: "Bit", runningType: "Bit", major: "Numeric"},
       {inputType: "Int", outputType: "BigInt", runningType: "BigInt", major: "Numeric"},

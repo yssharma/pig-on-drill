@@ -26,6 +26,7 @@ import net.hydromatic.optiq.tools.Planner;
 import net.hydromatic.optiq.tools.RelConversionException;
 import net.hydromatic.optiq.tools.ValidationException;
 
+import org.eigenbase.relopt.hep.HepPlanner;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.SubSchemaWrapper;
 import org.apache.drill.exec.store.dfs.WorkspaceSchemaFactory;
@@ -46,8 +47,8 @@ import org.apache.hadoop.fs.FileStatus;
 public class ShowFileHandler extends DefaultSqlHandler {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SetOptionHandler.class);
 
-  public ShowFileHandler(Planner planner, QueryContext context) {
-    super(planner, context);
+  public ShowFileHandler(HepPlanner hepPlanner, Planner planner, QueryContext context) {
+    super(hepPlanner, planner, context);
   }
 
   @Override

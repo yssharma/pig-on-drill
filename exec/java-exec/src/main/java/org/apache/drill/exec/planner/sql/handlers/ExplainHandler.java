@@ -36,6 +36,7 @@ import org.apache.drill.exec.planner.physical.explain.PrelSequencer;
 import org.apache.drill.exec.planner.sql.DirectPlan;
 import org.eigenbase.rel.RelNode;
 import org.eigenbase.relopt.RelOptUtil;
+import org.eigenbase.relopt.hep.HepPlanner;
 import org.eigenbase.sql.SqlExplain;
 import org.eigenbase.sql.SqlExplainLevel;
 import org.eigenbase.sql.SqlLiteral;
@@ -46,8 +47,8 @@ public class ExplainHandler extends DefaultSqlHandler{
 
   private ResultMode mode;
   private SqlExplainLevel level = SqlExplainLevel.ALL_ATTRIBUTES;
-  public ExplainHandler(Planner planner, QueryContext context) {
-    super(planner, context);
+  public ExplainHandler(HepPlanner hepPlanner, Planner planner, QueryContext context) {
+    super(hepPlanner, planner, context);
   }
 
   @Override

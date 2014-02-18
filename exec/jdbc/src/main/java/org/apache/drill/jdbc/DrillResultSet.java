@@ -106,7 +106,7 @@ public class DrillResultSet extends AvaticaResultSet {
 
 
 
-    final LinkedBlockingDeque<QueryResultBatch> queue = Queues.newLinkedBlockingDeque();
+    final LinkedBlockingDeque<QueryResultBatch> queue = new LinkedBlockingDeque<>();
 
     private boolean releaseIfFirst(){
       if(receivedMessage.compareAndSet(false, true)){

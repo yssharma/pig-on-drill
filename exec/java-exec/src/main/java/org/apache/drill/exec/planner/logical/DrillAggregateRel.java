@@ -74,7 +74,7 @@ public class DrillAggregateRel extends DrillAggregateRelBase implements DrillRel
     
     for (Ord<AggregateCall> aggCall : Ord.zip(aggCalls)) {
       FieldReference ref = new FieldReference(fields.get(groupSet.cardinality() + aggCall.i));
-      LogicalExpression expr = toDrill(aggCall.e, childFields, implementor);
+      LogicalExpression expr = toDrill(aggCall.e, childFields);
       builder.addExpr(ref, expr);
     }
     
@@ -84,7 +84,7 @@ public class DrillAggregateRel extends DrillAggregateRelBase implements DrillRel
   
   
   
-  private LogicalExpression toDrill(AggregateCall call, List<String> fn, DrillImplementor implementor) {
+  public static LogicalExpression toDrill(AggregateCall call, List<String> fn) {
     List<LogicalExpression> args = Lists.newArrayList();
     for(Integer i : call.getArgList()){
       args.add(new FieldReference(fn.get(i)));

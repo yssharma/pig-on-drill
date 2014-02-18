@@ -55,6 +55,7 @@ import org.apache.drill.exec.util.Pointer;
 import org.eigenbase.rel.RelNode;
 import org.eigenbase.relopt.RelOptUtil;
 import org.eigenbase.relopt.RelTraitSet;
+import org.eigenbase.relopt.hep.HepPlanner;
 import org.eigenbase.sql.SqlExplainLevel;
 import org.eigenbase.sql.SqlNode;
 
@@ -66,18 +67,20 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DefaultSqlHandler.class);
 
   protected final Planner planner;
+  protected final HepPlanner hepPlanner;
   protected final QueryContext context;
   private Pointer<String> textPlan;
   private final long targetSliceSize;
 
-  public DefaultSqlHandler(Planner planner, QueryContext context) {
-    this(planner, context, null);
+  public DefaultSqlHandler(HepPlanner hepPlanner, Planner planner, QueryContext context) {
+    this(hepPlanner, planner, context, null);
   }
 
-  public DefaultSqlHandler(Planner planner, QueryContext context, Pointer<String> textPlan) {
+  public DefaultSqlHandler(HepPlanner hepPlanner, Planner planner, QueryContext context, Pointer<String> textPlan) {
     super();
     this.planner = planner;
     this.context = context;
+    this.hepPlanner = hepPlanner;
     this.textPlan = textPlan;
     targetSliceSize = context.getOptions().getOption(ExecConstants.SLICE_TARGET).num_val;
   }
@@ -129,7 +132,9 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
   }
 
   protected RelNode convertToRel(SqlNode node) throws RelConversionException {
-    return planner.convert(node);
+    RelNode convertedNode = planner.convert(node);
+    hepPlanner.setRoot(convertedNode);
+    return hepPlanner.findBestExp();
   }
 
   protected DrillRel convertToDrel(RelNode relNode) throws RelConversionException {

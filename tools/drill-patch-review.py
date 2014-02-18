@@ -15,16 +15,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
+#
 # Modified based on Kafka's patch review tool
+
 
 import argparse
 import sys
-import os 
+import os
 import time
 import datetime
 import tempfile
+import commands
 from jira.client import JIRA
 
 def get_jira():
@@ -36,7 +37,11 @@ def get_jira():
   home=home.rstrip('/')
   jira_config = dict(line.strip().split('=') for line in open(home + '/jira.ini'))
   jira = JIRA(options,basic_auth=(jira_config['user'], jira_config['password']))
-  return jira 
+  return jira
+
+def cmd_exists(cmd):
+  status, result = commands.getstatusoutput(cmd)
+  return status
 
 def main():
   ''' main(), shut up, pylint '''
@@ -48,26 +53,51 @@ def main():
   popt.add_argument('-r', '--rb', action='store', dest='reviewboard', required=False, help='Review board that needs to be updated')
   popt.add_argument('-t', '--testing-done', action='store', dest='testing', required=False, help='Text for the Testing Done section of the reviewboard')
   popt.add_argument('-db', '--debug', action='store_true', required=False, help='Enable debug mode')
-  popt.add_argument('-rbu', '--reviewboard-user', action='store', dest='reviewboard_user', required=True, help='Review board user name')
-  popt.add_argument('-rbp', '--reviewboard-password', action='store', dest='reviewboard_password', required=True, help='Review board user password')
   opt = popt.parse_args()
+
+  post_review_tool = None
+  if (cmd_exists("post-review") == 0):
+    post_review_tool = "post-review"
+  elif (cmd_exists("rbt") == 0):
+    post_review_tool = "rbt post"
+  else:
+    print "please install RBTools"
+    sys.exit(1)
 
   patch_file=tempfile.gettempdir() + "/" + opt.jira + ".patch"
   if opt.reviewboard:
     ts = time.time()
     st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H:%M:%S')
     patch_file=tempfile.gettempdir() + "/" + opt.jira + '_' + st + '.patch'
-  
+
+  # first check if rebase is needed
+  git_branch_hash="git rev-parse " + opt.branch
+  p_now=os.popen(git_branch_hash)
+  branch_now=p_now.read()
+  p_now.close()
+
+  git_common_ancestor="git merge-base " + opt.branch + " HEAD"
+  p_then=os.popen(git_common_ancestor)
+  branch_then=p_then.read()
+  p_then.close()
+
+  if branch_now != branch_then:
+    print 'ERROR: Your current working branch is from an older version of ' + opt.branch + '. Please rebase first by using git pull --rebase'
+    sys.exit(1)
+
+  git_configure_reviewboard="git config reviewboard.url https://reviews.apache.org"
+  print "Configuring reviewboard url to https://reviews.apache.org"
+  p=os.popen(git_configure_reviewboard)
+  p.close()
+
   git_remote_update="git remote update"
   print "Updating your remote branches to pull the latest changes"
   p=os.popen(git_remote_update)
   p.close()
 
-  rb_command="post-review --publish --tracking-branch " + opt.branch + " --target-groups=drill-git --bugs-closed=" + opt.jira
-  rb_command=rb_command + " --username " + opt.reviewboard_user + " --password " + opt.reviewboard_password
-
+  rb_command= post_review_tool + " --publish --tracking-branch " + opt.branch + " --target-groups=drill-git --bugs-closed=" + opt.jira
   if opt.debug:
-    rb_command=rb_command + " --debug" 
+    rb_command=rb_command + " --debug"
   summary="Patch for " + opt.jira
   if opt.summary:
     summary=opt.summary
@@ -95,9 +125,9 @@ def main():
       p.close()
       sys.exit(1)
   p.close()
-  if opt.debug: 
+  if opt.debug:
     print 'rb url=',rb_url
- 
+
   git_command="git diff " + opt.branch + " > " + patch_file
   if opt.debug:
     print git_command
@@ -111,16 +141,15 @@ def main():
   jira.add_attachment(issue,attachment)
   attachment.close()
 
-  comment="Created reviewboard " 
+  comment="Created reviewboard "
   if not opt.reviewboard:
-    print 'Created a new reviewboard ',rb_url
+    print 'Created a new reviewboard',rb_url,
   else:
-    print 'Updated reviewboard',opt.reviewboard
+    print 'Updated reviewboard',rb_url
     comment="Updated reviewboard "
 
-  comment = comment + rb_url 
+  comment = comment + rb_url + ' against branch ' + opt.branch
   jira.add_comment(opt.jira, comment)
 
 if __name__ == '__main__':
   sys.exit(main())
-
