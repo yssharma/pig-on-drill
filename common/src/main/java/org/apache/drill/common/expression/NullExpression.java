@@ -55,9 +55,9 @@ public class NullExpression implements LogicalExpression{
   public Iterator<LogicalExpression> iterator() {
     return Iterators.emptyIterator();
   }
-  
+
   public int getSelfCost() { return 0 ; }
-  
+
   public int getCumulativeCost() { return 0; }
-  
+
 }

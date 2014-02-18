@@ -20,15 +20,15 @@ package org.apache.drill.exec.physical.impl.limit;
 import com.google.common.collect.Iterables;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.exec.ops.FragmentContext;
-import org.apache.drill.exec.physical.config.Limit;
+import org.apache.drill.exec.physical.config.LimitPOP;
 import org.apache.drill.exec.physical.impl.BatchCreator;
 import org.apache.drill.exec.record.RecordBatch;
 
 import java.util.List;
 
-public class LimitBatchCreator implements BatchCreator<Limit> {
+public class LimitBatchCreator implements BatchCreator<LimitPOP> {
   @Override
-  public RecordBatch getBatch(FragmentContext context, Limit config, List<RecordBatch> children) throws ExecutionSetupException {
+  public RecordBatch getBatch(FragmentContext context, LimitPOP config, List<RecordBatch> children) throws ExecutionSetupException {
     return new LimitRecordBatch(config, context, Iterables.getOnlyElement(children));
   }
 }

@@ -25,7 +25,7 @@ import java.util.List;
 import org.apache.drill.common.logical.data.LogicalOperator;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.config.Filter;
-import org.apache.drill.exec.physical.config.Limit;
+import org.apache.drill.exec.physical.config.LimitPOP;
 import org.apache.drill.exec.planner.common.DrillLimitRelBase;
 import org.apache.drill.exec.planner.logical.DrillImplementor;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
@@ -65,7 +65,7 @@ public class LimitPrel extends DrillLimitRelBase implements Prel {
     // Null value implies including entire remaining result set from first offset
     Integer last = fetch != null ? Math.max(0, RexLiteral.intValue(fetch)) + first : null;
 
-    Limit limit = new Limit(childPOP, first, last);
+    LimitPOP limit = new LimitPOP(childPOP, first, last);
     return creator.addMetadata(this, limit);
   }
 

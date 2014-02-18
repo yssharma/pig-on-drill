@@ -17,36 +17,20 @@
  */
 package org.apache.drill.exec.planner.sql;
 
-import java.util.List;
-
-import org.apache.drill.exec.planner.types.RelDataTypeDrillImpl;
-import org.apache.drill.exec.planner.types.RelDataTypeHolder;
+import com.google.common.collect.ImmutableList;
 import org.eigenbase.reltype.RelDataType;
 import org.eigenbase.reltype.RelDataTypeFactory;
 import org.eigenbase.sql.SqlAggFunction;
 import org.eigenbase.sql.SqlCall;
-import org.eigenbase.sql.SqlCallBinding;
 import org.eigenbase.sql.SqlFunctionCategory;
 import org.eigenbase.sql.SqlIdentifier;
 import org.eigenbase.sql.SqlKind;
-import org.eigenbase.sql.SqlLiteral;
-import org.eigenbase.sql.SqlNode;
-import org.eigenbase.sql.SqlOperandCountRange;
-import org.eigenbase.sql.SqlOperatorBinding;
-import org.eigenbase.sql.SqlSyntax;
-import org.eigenbase.sql.SqlWriter;
 import org.eigenbase.sql.parser.SqlParserPos;
-import org.eigenbase.sql.type.SqlOperandTypeChecker;
-import org.eigenbase.sql.type.SqlOperandTypeInference;
-import org.eigenbase.sql.type.SqlReturnTypeInference;
 import org.eigenbase.sql.type.SqlTypeName;
-import org.eigenbase.sql.util.SqlBasicVisitor.ArgHandler;
-import org.eigenbase.sql.util.SqlVisitor;
-import org.eigenbase.sql.validate.SqlMonotonicity;
 import org.eigenbase.sql.validate.SqlValidator;
 import org.eigenbase.sql.validate.SqlValidatorScope;
 
-import com.google.common.collect.ImmutableList;
+import java.util.List;
 
 public class DrillSqlAggOperator extends SqlAggFunction {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillSqlAggOperator.class);

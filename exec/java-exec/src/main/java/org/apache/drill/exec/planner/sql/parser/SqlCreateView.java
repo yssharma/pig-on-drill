@@ -24,6 +24,7 @@ import net.hydromatic.optiq.tools.Planner;
 import org.apache.drill.exec.ops.QueryContext;
 import org.apache.drill.exec.planner.sql.handlers.AbstractSqlHandler;
 import org.apache.drill.exec.planner.sql.handlers.ViewHandler;
+import org.eigenbase.relopt.hep.HepPlanner;
 import org.eigenbase.sql.SqlCall;
 import org.eigenbase.sql.SqlIdentifier;
 import org.eigenbase.sql.SqlKind;
@@ -102,7 +103,7 @@ public class SqlCreateView extends DrillSqlCall {
   }
 
   @Override
-  public AbstractSqlHandler getSqlHandler(Planner planner, QueryContext context) {
+  public AbstractSqlHandler getSqlHandler(HepPlanner hepPlanner, Planner planner, QueryContext context) {
     return new ViewHandler.CreateView(planner, context);
   }
 

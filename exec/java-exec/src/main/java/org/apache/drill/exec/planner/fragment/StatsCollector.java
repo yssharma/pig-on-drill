@@ -23,7 +23,8 @@ import org.apache.drill.exec.physical.base.HasAffinity;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.Store;
 import org.apache.drill.exec.physical.base.SubScan;
-import org.apache.drill.exec.physical.config.Limit;
+import org.apache.drill.exec.physical.config.LimitPOP;
+import org.apache.drill.exec.physical.config.WindowPOP;
 import org.apache.drill.exec.planner.AbstractOpWrapperVisitor;
 import org.apache.drill.exec.planner.fragment.Fragment.ExchangeFragmentPair;
 
@@ -95,7 +96,7 @@ public class StatsCollector {
     }
 
     @Override
-    public Void visitLimit(Limit limit, Wrapper wrapper) throws RuntimeException {
+    public Void visitLimit(LimitPOP limit, Wrapper wrapper) throws RuntimeException {
       // TODO: Implement this
       return visitOp(limit, wrapper);
     }
@@ -111,6 +112,11 @@ public class StatsCollector {
         child.accept(this, wrapper);
       }
       return null;
+    }
+
+    @Override
+    public Void visitWindowFrame(WindowPOP window, Wrapper value) throws RuntimeException {
+      return visitOp(window, value);
     }
 
   }

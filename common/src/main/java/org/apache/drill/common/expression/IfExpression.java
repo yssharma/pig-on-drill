@@ -55,12 +55,9 @@ public class IfExpression extends LogicalExpressionBase{
 		public final LogicalExpression expression;
 		
 		public IfCondition(LogicalExpression condition, LogicalExpression expression) {
-			//logger.debug("Generating IfCondition {}, {}", condition, expression);
-			
 			this.condition = condition;
 			this.expression = expression;
 		}
-
 	}
 	
 	@Override

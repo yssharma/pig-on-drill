@@ -59,7 +59,7 @@ public static class ${type.inputType}${aggrtype.className} implements DrillAggFu
 
   public void setup(RecordBatch b) {
 	value = new ${type.runningType}Holder();  
-	<#if aggrtype.funcName == "sum" || aggrtype.funcName == "count">
+	<#if aggrtype.funcName == "sum" || aggrtype.funcName == "$sum0" || aggrtype.funcName == "count">
 	  value.value = 0;
 	<#elseif aggrtype.funcName == "min">
     <#if type.runningType?starts_with("Bit")>
@@ -93,7 +93,7 @@ public static class ${type.inputType}${aggrtype.className} implements DrillAggFu
   public void add() {
 	  <#if type.inputType?starts_with("Nullable")>
 	    sout: {
-	    if (in.isSet == 0) {
+      if (in.isSet == 0) {
 		    // processing nullable input and the value is null, so don't do anything...
 		    break sout;
 	    }  
@@ -102,7 +102,7 @@ public static class ${type.inputType}${aggrtype.className} implements DrillAggFu
 	    value.value = Math.min(value.value, in.value);
 	  <#elseif aggrtype.funcName == "max">
 	    value.value = Math.max(value.value,  in.value);
-	  <#elseif aggrtype.funcName == "sum">
+	  <#elseif aggrtype.funcName == "sum" || aggrtype.funcName == "$sum0">
 	    value.value += in.value;
 	  <#elseif aggrtype.funcName == "count">
 	    value.value++;
@@ -117,12 +117,15 @@ public static class ${type.inputType}${aggrtype.className} implements DrillAggFu
   @Override
   public void output() {
     out.value = value.value;
+    <#if type.outputType?starts_with("Nullable")>
+    out.isSet = 1;
+    </#if>
   }
 
   @Override
   public void reset() {
 	
-	<#if aggrtype.funcName == "sum" || aggrtype.funcName == "count">
+	<#if aggrtype.funcName == "sum" || aggrtype.funcName == "$sum0" || aggrtype.funcName == "count">
 	  value.value = 0;
 	<#elseif aggrtype.funcName == "min">
 	  <#if type.runningType?starts_with("Int")>

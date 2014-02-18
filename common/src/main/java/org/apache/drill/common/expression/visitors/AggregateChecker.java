@@ -85,10 +85,10 @@ public final class AggregateChecker implements ExprVisitor<Boolean, ErrorCollect
       if (arg.accept(this, errors))
         return true;
     }
-    
+
     return false;
   }
-  
+
   @Override
   public Boolean visitIfExpression(IfExpression ifExpr, ErrorCollector errors) {
     for(IfCondition c : ifExpr.conditions){

@@ -67,7 +67,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.sun.codemodel.JExpr;
 
-public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project>{
+public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ProjectRecordBatch.class);
 
   private Projector projector;
@@ -100,7 +100,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project>{
   }
 
   @Override
-  protected void doWork() {
+  protected IterOutcome doWork() {
 //    VectorUtil.showVectorAccessibleContent(incoming, ",");
     int incomingRecordCount = incoming.getRecordCount();
 
@@ -124,6 +124,8 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project>{
     if (complexWriters != null) {
       container.buildSchema(SelectionVectorMode.NONE);
     }
+
+    return IterOutcome.OK;
   }
 
   private void handleRemainder() {
@@ -138,7 +140,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project>{
       setValueCount(remainingRecordCount);
       hasRemainder = false;
       remainderIndex = 0;
-      for(VectorWrapper<?> v: incoming) {
+      for (VectorWrapper<?> v : incoming) {
         v.clear();
       }
       this.recordCount = remainingRecordCount;
@@ -196,22 +198,22 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project>{
     return ref;
   }
 
-  private boolean isAnyWildcard(List<NamedExpression> exprs){
-    for(NamedExpression e : exprs){
-      if(isWildcard(e)) return true;
+  private boolean isAnyWildcard(List<NamedExpression> exprs) {
+    for (NamedExpression e : exprs) {
+      if (isWildcard(e)) return true;
     }
     return false;
   }
 
-  private boolean isWildcard(NamedExpression ex){
-    if( !(ex.getExpr() instanceof SchemaPath)) return false;
-    NameSegment expr = ((SchemaPath)ex.getExpr()).getRootSegment();
+  private boolean isWildcard(NamedExpression ex) {
+    if (!(ex.getExpr() instanceof SchemaPath)) return false;
+    NameSegment expr = ((SchemaPath) ex.getExpr()).getRootSegment();
     NameSegment ref = ex.getRef().getRootSegment();
     return ref.getPath().equals("*") && expr.getPath().equals("*");
   }
 
   @Override
-  protected void setupNewSchema() throws SchemaChangeException{
+  protected void setupNewSchema() throws SchemaChangeException {
     this.allocationVectors = Lists.newArrayList();
     container.clear();
     final List<NamedExpression> exprs = getExpressionList();
@@ -239,12 +241,12 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project>{
         transfers.add(tp);
         container.add(tp.getTo());
       }
-    }else{
-      for(int i = 0; i < exprs.size(); i++){
+    } else {
+      for (int i = 0; i < exprs.size(); i++) {
         final NamedExpression namedExpression = exprs.get(i);
         final LogicalExpression expr = ExpressionTreeMaterializer.materialize(namedExpression.getExpr(), incoming, collector, context.getFunctionRegistry(), true);
         final MaterializedField outputField = MaterializedField.create(getRef(namedExpression), expr.getMajorType());
-        if(collector.hasErrors()){
+        if (collector.hasErrors()) {
           throw new SchemaChangeException(String.format("Failure while trying to materialize incoming schema.  Errors:\n %s.", collector.toErrorString()));
         }
 

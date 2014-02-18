@@ -17,14 +17,14 @@
  */
 package org.apache.drill.exec.physical.impl.aggregate;
 
-import java.util.Iterator;
-
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
+
+import java.util.Iterator;
 
 public class InternalBatch implements Iterable<VectorWrapper<?>>{
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(InternalBatch.class);
@@ -34,7 +34,11 @@ public class InternalBatch implements Iterable<VectorWrapper<?>>{
   private final SelectionVector2 sv2;
   private final SelectionVector4 sv4;
 
-  public InternalBatch(RecordBatch incoming){
+  public InternalBatch(RecordBatch incoming) {
+    this(incoming, null);
+  }
+
+  public InternalBatch(RecordBatch incoming, VectorWrapper[] ignoreWrappers){
     switch(incoming.getSchema().getSelectionVectorMode()){
     case FOUR_BYTE:
       this.sv4 = incoming.getSelectionVector4().createNewWrapperCurrent();
@@ -49,7 +53,7 @@ public class InternalBatch implements Iterable<VectorWrapper<?>>{
       this.sv2 = null;
     }
     this.schema = incoming.getSchema();
-    this.container = VectorContainer.getTransferClone(incoming);
+    this.container = VectorContainer.getTransferClone(incoming, ignoreWrappers);
   }
 
   public BatchSchema getSchema() {

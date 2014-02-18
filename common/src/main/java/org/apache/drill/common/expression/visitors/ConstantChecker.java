@@ -49,9 +49,9 @@ final class ConstantChecker implements ExprVisitor<Boolean, ErrorCollector, Runt
 
 
   private final static ConstantChecker INSTANCE = new ConstantChecker();
-  
+
   private ConstantChecker(){}
-  
+
   public static void checkConstants(LogicalExpression e, ErrorCollector errors){
     e.accept(INSTANCE, errors);
   }
@@ -87,7 +87,7 @@ final class ConstantChecker implements ExprVisitor<Boolean, ErrorCollector, Runt
     }
     return true;
   }
-  
+
   @Override
   public Boolean visitIfExpression(IfExpression ifExpr, ErrorCollector errors) {
     for (IfCondition c : ifExpr.conditions) {

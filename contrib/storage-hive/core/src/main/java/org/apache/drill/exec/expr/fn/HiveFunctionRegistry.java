@@ -77,7 +77,7 @@ public class HiveFunctionRegistry implements PluggableFunctionRegistry{
     }else{
       names = new String[]{clazz.getName().replace('.', '_')};
     }
-    
+
     UDFType type = clazz.getAnnotation(UDFType.class);
     if (type != null && type.deterministic()) nonDeterministicUDFs.add(clazz);
 
