@@ -29,7 +29,9 @@ import org.apache.drill.common.logical.data.NamedExpression;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.config.WindowPOP;
 import org.apache.drill.exec.planner.common.DrillWindowRelBase;
+import org.apache.drill.exec.planner.logical.DrillAggregateRel;
 import org.apache.drill.exec.planner.physical.visitor.PrelVisitor;
+import org.apache.drill.exec.planner.sql.DrillSqlAggOperator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.eigenbase.rel.AggregateCall;
 import org.eigenbase.rel.RelNode;
@@ -80,7 +82,15 @@ public class StreamingWindowPrel extends DrillWindowRelBase implements Prel {
 
     for (AggregateCall aggCall : window.getAggregateCalls(this)) {
       FieldReference ref = new FieldReference(aggCall.getName());
-      LogicalExpression expr = toDrill(aggCall, childFields);
+      AggregateCall call = new AggregateCall(
+          new DrillSqlAggOperator(
+              aggCall.getAggregation().getName().toLowerCase() + "_win",
+              aggCall.getArgList().size()),
+          aggCall.isDistinct(),
+          aggCall.getArgList(),
+          aggCall.getType(),
+          aggCall.getName());
+      LogicalExpression expr = DrillAggregateRel.toDrill(call, childFields);
       aggs.add(new NamedExpression(expr, ref));
     }
 

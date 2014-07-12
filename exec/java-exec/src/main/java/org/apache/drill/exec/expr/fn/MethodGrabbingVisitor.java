@@ -28,7 +28,7 @@ import org.codehaus.janino.util.Traverser;
 import com.google.common.collect.Maps;
 
 
-public class MethodGrabbingVisitor{
+public class MethodGrabbingVisitor {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MethodGrabbingVisitor.class);
 
   private Class<?> c;
@@ -41,7 +41,7 @@ public class MethodGrabbingVisitor{
     this.c = c;
   }
 
-  public class ClassFinder extends Traverser{
+  public class ClassFinder extends Traverser {
 
     @Override
     public void traverseClassDeclaration(ClassDeclaration cd) {
@@ -56,7 +56,7 @@ public class MethodGrabbingVisitor{
     public void traverseMethodDeclarator(MethodDeclarator md) {
 //      logger.debug(c.getName() + ": Found {}, include {}", md.name, captureMethods);
 
-      if(captureMethods){
+      if (captureMethods) {
         StringWriter writer = new StringWriter();
         ModifiedUnparseVisitor v = new ModifiedUnparseVisitor(writer);
 //        UnparseVisitor v = new UnparseVisitor(writer);
@@ -70,7 +70,7 @@ public class MethodGrabbingVisitor{
   }
 
 
-  public static Map<String, String> getMethods(Java.CompilationUnit cu, Class<?> c){
+  public static Map<String, String> getMethods(Java.CompilationUnit cu, Class<?> c) {
     MethodGrabbingVisitor visitor = new MethodGrabbingVisitor(c);
     cu.getPackageMemberTypeDeclarations()[0].accept(visitor.classFinder.comprehensiveVisitor());
     return visitor.methods;
