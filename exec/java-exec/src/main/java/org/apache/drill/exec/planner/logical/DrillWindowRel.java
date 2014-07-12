@@ -29,6 +29,7 @@ import org.apache.drill.common.expression.ValueExpressions;
 import org.apache.drill.common.logical.data.LogicalOperator;
 import org.apache.drill.common.logical.data.Order;
 import org.apache.drill.exec.planner.common.DrillWindowRelBase;
+import org.apache.drill.exec.planner.sql.DrillSqlAggOperator;
 import org.eigenbase.rel.AggregateCall;
 import org.eigenbase.rel.RelFieldCollation;
 import org.eigenbase.rel.RelNode;
@@ -84,7 +85,16 @@ public class DrillWindowRel extends DrillWindowRelBase implements DrillRel {
       int groupCardinality = window.groupSet.cardinality();
       for (Ord<AggregateCall> aggCall : Ord.zip(window.getAggregateCalls(this))) {
         FieldReference ref = new FieldReference(fields.get(groupCardinality + aggCall.i));
-        LogicalExpression expr = toDrill(aggCall.e, childFields);
+        // Rewrite window agg call to have suffix _win
+        AggregateCall call = new AggregateCall(
+            new DrillSqlAggOperator(
+                aggCall.e.getAggregation().getName().toLowerCase() + "_win",
+                aggCall.e.getArgList().size()),
+            aggCall.e.isDistinct(),
+            aggCall.e.getArgList(),
+            aggCall.e.getType(),
+            aggCall.e.getName());
+        LogicalExpression expr = DrillAggregateRel.toDrill(call, childFields);
         builder.addAggregation(ref, expr);
       }
     }
@@ -107,5 +117,3 @@ public class DrillWindowRel extends DrillWindowRelBase implements DrillRel {
     return expr;
   }
 }
-
-

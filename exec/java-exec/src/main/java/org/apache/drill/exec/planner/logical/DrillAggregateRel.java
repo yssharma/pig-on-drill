@@ -51,7 +51,6 @@ public class DrillAggregateRel extends DrillAggregateRelBase implements DrillRel
     super(cluster, traits, child, groupSet, aggCalls);
   }
 
-  @Override
   public AggregateRelBase copy(RelTraitSet traitSet, RelNode input, BitSet groupSet, List<AggregateCall> aggCalls) {
     try {
       return new DrillAggregateRel(getCluster(), traitSet, input, getGroupSet(), aggCalls);
@@ -62,7 +61,6 @@ public class DrillAggregateRel extends DrillAggregateRelBase implements DrillRel
 
   @Override
   public LogicalOperator implement(DrillImplementor implementor) {
-
     GroupingAggregate.Builder builder = GroupingAggregate.builder();
     builder.setInput(implementor.visitChild(this, 0, getChild()));
     final List<String> childFields = getChild().getRowType().getFieldNames();
@@ -75,21 +73,24 @@ public class DrillAggregateRel extends DrillAggregateRelBase implements DrillRel
 
     for (Ord<AggregateCall> aggCall : Ord.zip(aggCalls)) {
       FieldReference ref = new FieldReference(fields.get(groupSet.cardinality() + aggCall.i));
-      LogicalExpression expr = toDrill(aggCall.e, childFields, implementor);
+      LogicalExpression expr = toDrill(aggCall.e, childFields);
       builder.addExpr(ref, expr);
     }
 
     return builder.build();
   }
 
-  public static LogicalExpression toDrill(AggregateCall call, List<String> fn, DrillImplementor implementor) {
+
+
+
+  public static LogicalExpression toDrill(AggregateCall call, List<String> fn) {
     List<LogicalExpression> args = Lists.newArrayList();
     for(Integer i : call.getArgList()) {
       args.add(new FieldReference(fn.get(i)));
     }
 
-    // for count(1).
-    if (args.isEmpty()) {
+    if(call.getAggregation().getName().toLowerCase().equals("count") &&
+        args.isEmpty()) {
       args.add(new ValueExpressions.LongExpression(1l));
     }
     LogicalExpression expr = FunctionCallFactory.createExpression(call.getAggregation().getName().toLowerCase(), ExpressionPosition.UNKNOWN, args);
