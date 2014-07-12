@@ -268,7 +268,10 @@ public class FunctionConverter {
       case DECIMAL_ZERO_SCALE:
           return new DrillDecimalZeroScaleFuncHolder(template.scope(), template.nulls(), template.isBinaryCommutative(),
                   template.isRandom(), registeredNames, ps, outputField, works, methods, imports);
-      case HOLISTIC_AGGREGATE:
+      case WINDOW_POINT_AGGREGATE:
+          return new DrillWindowAggFuncHolder(template.scope(), template.nulls(), template.isBinaryCommutative(),
+              template.isRandom(), registeredNames, ps, outputField, works, methods, imports, template.costCategory());
+        case HOLISTIC_AGGREGATE:
       case RANGE_AGGREGATE:
       default:
         return failure("Unsupported Function Type.", clazz);

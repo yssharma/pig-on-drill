@@ -61,7 +61,6 @@ public class DrillAggregateRel extends DrillAggregateRelBase implements DrillRel
 
   @Override
   public LogicalOperator implement(DrillImplementor implementor) {
-
     GroupingAggregate.Builder builder = GroupingAggregate.builder();
     builder.setInput(implementor.visitChild(this, 0, getChild()));
     final List<String> childFields = getChild().getRowType().getFieldNames();
@@ -89,9 +88,11 @@ public class DrillAggregateRel extends DrillAggregateRelBase implements DrillRel
     for(Integer i : call.getArgList()){
       args.add(new FieldReference(fn.get(i)));
     }
-    
-    // for count(1).
-    if(args.isEmpty()) args.add(new ValueExpressions.LongExpression(1l));
+
+    if(call.getAggregation().getName().toLowerCase().equals("count") &&
+        args.isEmpty()) {
+      args.add(new ValueExpressions.LongExpression(1l));
+    }
     LogicalExpression expr = FunctionCallFactory.createExpression(call.getAggregation().getName().toLowerCase(), ExpressionPosition.UNKNOWN, args);
     return expr;
   }

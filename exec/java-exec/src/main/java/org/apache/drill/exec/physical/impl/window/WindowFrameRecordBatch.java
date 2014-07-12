@@ -113,10 +113,10 @@ public class WindowFrameRecordBatch extends AbstractSingleRecordBatch<WindowPOP>
       valueExprs.add(new ValueVectorWriteExpression(id, expr, true));
     }
 
-    int j = 0;
-    LogicalExpression[] windowExprs = new LogicalExpression[incoming.getSchema().getFieldCount()];
+    List<LogicalExpression> windowExprs = Lists.newArrayList();
     // TODO: Should transfer all existing columns instead of copy. Currently this is not easily doable because
     // we are not processing one entire batch in one iteration, so cannot simply transfer.
+    int j = 0;
     for (VectorWrapper wrapper : incoming) {
       // We only output window aggregate outputs in the last window
       // The regex matches what Optiq generated agg field names, ie: w0$p0, w0$p1...
@@ -129,7 +129,7 @@ public class WindowFrameRecordBatch extends AbstractSingleRecordBatch<WindowPOP>
             incoming,
             collector,
             context.getFunctionRegistry());
-        windowExprs[j] = new ValueVectorWriteExpression(id, expr, true);
+        windowExprs.add(new ValueVectorWriteExpression(id, expr, true));
       }
       j++;
     }
@@ -223,10 +223,10 @@ public class WindowFrameRecordBatch extends AbstractSingleRecordBatch<WindowPOP>
   private final GeneratorMapping OUTPUT_WINDOW_VALUES = GeneratorMapping.create("setupInterior", "outputWindowValues", null, null);
   private final MappingSet WINDOW_VALUES = new MappingSet("inIndex" /* read index */, "outIndex" /* write index */, "incoming", "outgoing", OUTPUT_WINDOW_VALUES, OUTPUT_WINDOW_VALUES);
 
-  private void outputWindowValues(ClassGenerator<WindowFramer> cg, LogicalExpression[] valueExprs) {
+  private void outputWindowValues(ClassGenerator<WindowFramer> cg, List<LogicalExpression> valueExprs) {
     cg.setMappingSet(WINDOW_VALUES);
-    for (int i = 0; i < valueExprs.length; i++) {
-      ClassGenerator.HoldingContainer hc = cg.addExpr(valueExprs[i]);
+    for (LogicalExpression expr : valueExprs) {
+      ClassGenerator.HoldingContainer hc = cg.addExpr(expr);
       cg.getEvalBlock()._if(hc.getValue().eq(JExpr.lit(0)))._then()._return(JExpr.FALSE);
     }
     cg.getEvalBlock()._return(JExpr.TRUE);

@@ -74,7 +74,7 @@ public class JdbcTestQueryBase extends JdbcTest {
           System.out.println();
         }
 
-        System.out.println(String.format("Query completed in %d millis.", watch.elapsed(TimeUnit.MILLISECONDS)));
+        System.out.println(String.format("Query completed in %d millis.", watch.elapsedTime(TimeUnit.MILLISECONDS)));
       }
 
       System.out.println("\n\n\n");
