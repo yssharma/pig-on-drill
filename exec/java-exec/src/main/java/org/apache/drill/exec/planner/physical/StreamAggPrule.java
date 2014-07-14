@@ -47,7 +47,7 @@ public class StreamAggPrule extends AggPruleBase {
   protected static final Logger tracer = EigenbaseTrace.getPlannerTracer();
 
   private StreamAggPrule() {
-    super(RelOptHelper.any(DrillAggregateRel.class), "Prel.StreamAggPrule");
+    super(RelOptHelper.some(DrillAggregateRel.class, RelOptHelper.any(RelNode.class)), "StreamAggPrule");
   }
 
   @Override

@@ -38,7 +38,7 @@ public class HashAggPrule extends AggPruleBase {
   protected static final Logger tracer = EigenbaseTrace.getPlannerTracer();
 
   private HashAggPrule() {
-    super(RelOptHelper.some(DrillAggregateRel.class, RelOptHelper.any(DrillRel.class)), "Prel.HashAggPrule");
+    super(RelOptHelper.some(DrillAggregateRel.class, RelOptHelper.any(RelNode.class)), "HashAggPrule");
   }
 
   @Override
