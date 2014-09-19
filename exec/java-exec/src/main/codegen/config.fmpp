@@ -37,6 +37,7 @@ data: {
     extract: tdd(../data/ExtractTypes.tdd),
     sumzero: tdd(../data/SumZero.tdd),
     numericTypes: tdd(../data/NumericTypes.tdd),
+    windowTypes: tdd(../data/WindowTypes.tdd),
     casthigh: tdd(../data/CastHigh.tdd)
 }
 freemarkerLinks: {

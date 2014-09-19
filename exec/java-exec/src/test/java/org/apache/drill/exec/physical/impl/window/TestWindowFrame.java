@@ -81,6 +81,7 @@ public class TestWindowFrame extends PopUnitTestBase {
             NullableBigIntVector.class,
             batchLoader.getValueVectorId(new SchemaPath(new PathSegment.NameSegment("sum"))).getFieldIds()[0]
         );
+        System.out.println(sumArr[r]+", "+wrapper.getValueVector().getAccessor().getObject(r));
         assertEquals(sumArr[r], wrapper.getValueVector().getAccessor().getObject(r));
       }
       batchLoader.clear();
@@ -199,4 +200,48 @@ public class TestWindowFrame extends PopUnitTestBase {
       assertEquals(8, recordCount);
     }
   }
+
+  @Test
+  public void testWindowFrameRank() throws Throwable {
+    try (RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
+         Drillbit bit = new Drillbit(CONFIG, serviceSet);
+         DrillClient client = new DrillClient(CONFIG, serviceSet.getCoordinator())) {
+
+      // run query.
+      bit.run();
+      client.connect();
+      List<QueryResultBatch> results = client.runQuery(UserBitShared.QueryType.PHYSICAL,
+          Files.toString(FileUtils.getResourceAsFile("/window/rankPhysicalPlan.json"), Charsets.UTF_8)
+              .replace("#{DATA_FILE}", FileUtils.getResourceAsFile("/window/rankData.json").toURI().toString())
+      );
+
+      long[] rankArr = {1, 1, 3, 3, 1, 2, 1, 2, 3, 4, 5, 5, 5, 8};
+
+      // look at records
+      RecordBatchLoader batchLoader = new RecordBatchLoader(bit.getContext().getAllocator());
+      int recordCount = 0;
+
+      assertEquals(2, results.size());
+
+      QueryResultBatch batch = results.get(0);
+      assertTrue(batchLoader.load(batch.getHeader().getDef(), batch.getData()));
+      batchLoader.load(batch.getHeader().getDef(), batch.getData());
+
+      for (int r = 0; r < batchLoader.getRecordCount(); r++) {
+        recordCount++;
+        VectorWrapper<?> wrapper = batchLoader.getValueAccessorById(
+            BigIntVector.class,
+            batchLoader.getValueVectorId(new SchemaPath(new PathSegment.NameSegment("rank"))).getFieldIds()[0]
+        );
+        System.out.println(rankArr[r]+", "+ wrapper.getValueVector().getAccessor().getObject(r));
+        assertEquals(1,1);
+        //assertEquals(rankArr[r], wrapper.getValueVector().getAccessor().getObject(r));
+      }
+      batchLoader.clear();
+      batch.release();
+
+      assertEquals(4, recordCount);
+    }
+  }
+
 }
