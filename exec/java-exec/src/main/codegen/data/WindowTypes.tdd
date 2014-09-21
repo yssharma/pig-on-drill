@@ -17,27 +17,17 @@
 {
   windowfuncs: [
    {className: "RankWindow", funcName: "rank_win", outputType: "BigInt", runningType: "BigInt",  types: [
-          {inputType: "NullableBit", major: "Numeric"},
           {inputType: "BigInt", major: "Numeric"},
           {inputType: "Int", major: "Numeric"},
-          {inputType: "NullableInt", major: "Numeric"},
-          {inputType: "NullableBigInt", major: "Numeric"},
           {inputType: "Float4", major: "Numeric"},
-          {inputType: "NullableFloat4", major: "Numeric"},
           {inputType: "Float8", major: "Numeric"}
-          {inputType: "NullableFloat8", major: "Numeric"}
          ]
    },
    {className: "DenseRankWindow", funcName: "dense_rank_win", outputType: "BigInt", runningType: "BigInt",  types: [
-          {inputType: "NullableBit", major: "Numeric"},
           {inputType: "BigInt", major: "Numeric"},
           {inputType: "Int", major: "Numeric"},
-          {inputType: "NullableInt", major: "Numeric"},
-          {inputType: "NullableBigInt", major: "Numeric"},
           {inputType: "Float4", major: "Numeric"},
-          {inputType: "NullableFloat4", major: "Numeric"},
           {inputType: "Float8", major: "Numeric"}
-          {inputType: "NullableFloat8", major: "Numeric"}
          ]
    },
   ]

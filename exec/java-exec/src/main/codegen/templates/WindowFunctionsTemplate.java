@@ -44,7 +44,7 @@ import org.apache.drill.exec.expr.DrillWindowPointAggFunc;
 @SuppressWarnings("unused")
 
 public class ${windowfunc.className}Functions {
-	static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${windowfunc.className}Functions.class);
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${windowfunc.className}Functions.class);
 
 <#list windowfunc.types as type>
 <#if type.major == "Numeric">
@@ -60,44 +60,44 @@ public static class ${type.inputType}${windowfunc.className} implements DrillWin
 
   @Override
   public void setup(RecordBatch b) {
-	rank = new ${windowfunc.runningType}Holder();
-	rank.value = 0;
-	numberOfMatches = new ${windowfunc.runningType}Holder();
-	numberOfMatches.value = 0;
-	lastValue = new ${type.inputType}Holder();
+  rank = new ${windowfunc.runningType}Holder();
+  rank.value = 0;
+  numberOfMatches = new ${windowfunc.runningType}Holder();
+  numberOfMatches.value = 0;
+  lastValue = new ${type.inputType}Holder();
   }
 
   @Override
   public void add() {
-	  if(in.value == lastValue.value){
-		  numberOfMatches.value += 1;
-	  }
-	  else{
-		  rank.value += 1;
-		  numberOfMatches.value = 0;
-	  }
-	  lastValue.value = in.value;
+    if(in.value == lastValue.value){
+      numberOfMatches.value += 1;
+    }
+    else{
+      rank.value += 1;
+      numberOfMatches.value = 0;
+    }
+    lastValue.value = in.value;
   }
 
   @Override
   public void remove() {
-	  // TODO
+    // TODO
   }
 
   @Override
   public void output() {
-	<#if windowfunc.funcName == "rank_win">
-	    out.value = rank.value + numberOfMatches.value;
-	<#elseif windowfunc.funcName == "dense_rank_win">
-	out.value = rank.value;
-	</#if>
+  <#if windowfunc.funcName == "rank_win">
+      out.value = rank.value + numberOfMatches.value;
+  <#elseif windowfunc.funcName == "dense_rank_win">
+  out.value = rank.value;
+  </#if>
 
   }
 
   @Override
   public void reset() {
-	rank.value = 0;
-	numberOfMatches.value = 0;
+  rank.value = 0;
+  numberOfMatches.value = 0;
   }
 
  }
