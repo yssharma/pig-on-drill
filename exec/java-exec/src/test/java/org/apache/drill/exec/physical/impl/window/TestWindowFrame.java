@@ -231,7 +231,7 @@ public class TestWindowFrame extends PopUnitTestBase {
         recordCount++;
         VectorWrapper<?> wrapper = batchLoader.getValueAccessorById(
             BigIntVector.class,
-            batchLoader.getValueVectorId(new SchemaPath(new PathSegment.NameSegment("rank"))).getFieldIds()[0]
+            batchLoader.getValueVectorId(new SchemaPath(new PathSegment.NameSegment("rank_win"))).getFieldIds()[0]
         );
         System.out.println(rankArr[r]+", "+ wrapper.getValueVector().getAccessor().getObject(r));
         assertEquals(1,1);
