@@ -71,8 +71,7 @@ public class TypeHelper {
     case LIST:
       return new GenericAccessor(vector);
     }
-
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("Unable to find sql accessor for minor type [" + vector.getField().getType().getMinorType() + "] and mode [" + vector.getField().getType().getMode() + "]");
   }
   
   public static ValueVector getNewVector(SchemaPath parentPath, String name, BufferAllocator allocator, MajorType type){
@@ -253,7 +252,7 @@ public class TypeHelper {
       default:
         break;
       }
-      throw new UnsupportedOperationException();
+      throw new UnsupportedOperationException("Unable to find holder type for minorType: " + type);
   }
 
   public static ValueVector getNewVector(MaterializedField field, BufferAllocator allocator){
