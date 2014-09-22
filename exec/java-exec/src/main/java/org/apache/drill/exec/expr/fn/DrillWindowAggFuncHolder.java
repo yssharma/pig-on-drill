@@ -126,7 +126,7 @@ class DrillWindowAggFuncHolder extends DrillFuncHolder {
 
     for (int i = 0; i < workspaceVars.length; i++) {
       Preconditions.checkState(Types.isFixedWidthType(workspaceVars[i].majorType), String.format("Workspace variable '%s' in aggregation function '%s' is not allowed to have variable length type.", workspaceVars[i].name, registeredNames[0]));
-      Preconditions.checkState(workspaceVars[i].majorType.getMode() == DataMode.REQUIRED, String.format("Workspace variable '%s' in aggregation function '%s' is not allowed to have null or repeated type.", workspaceVars[i].name, registeredNames[0]));
+      //Preconditions.checkState(workspaceVars[i].majorType.getMode() == DataMode.REQUIRED, String.format("Workspace variable '%s' in aggregation function '%s' is not allowed to have null or repeated type.", workspaceVars[i].name, registeredNames[0]));
 
       //workspaceJVars[i] = g.declareClassField("work", g.getHolderType(workspaceVars[i].majorType), JExpr._new(g.getHolderType(workspaceVars[i].majorType)));
       workspaceJVars[i] = g.declareClassField("work", g.getHolderType(workspaceVars[i].majorType));

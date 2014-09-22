@@ -60,11 +60,11 @@ public static class ${type.inputType}${windowfunc.className} implements DrillWin
 
   @Override
   public void setup(RecordBatch b) {
-  rank = new ${windowfunc.runningType}Holder();
-  rank.value = 0;
-  numberOfMatches = new ${windowfunc.runningType}Holder();
-  numberOfMatches.value = 0;
-  lastValue = new ${type.inputType}Holder();
+    rank = new ${windowfunc.runningType}Holder();
+    rank.value = 0;
+    numberOfMatches = new ${windowfunc.runningType}Holder();
+    numberOfMatches.value = 0;
+    lastValue = new ${type.inputType}Holder();
   }
 
   @Override
