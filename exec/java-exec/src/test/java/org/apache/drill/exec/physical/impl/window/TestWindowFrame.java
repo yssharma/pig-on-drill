@@ -202,7 +202,7 @@ public class TestWindowFrame extends PopUnitTestBase {
   }
 
   @Test
-  public void testWindowFrameRank() throws Throwable {
+  public void testWindowFrameRownumber() throws Throwable {
     try (RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
          Drillbit bit = new Drillbit(CONFIG, serviceSet);
          DrillClient client = new DrillClient(CONFIG, serviceSet.getCoordinator())) {
@@ -215,7 +215,7 @@ public class TestWindowFrame extends PopUnitTestBase {
               .replace("#{DATA_FILE}", FileUtils.getResourceAsFile("/window/rankData.json").toURI().toString())
       );
 
-      long[] rankArr = {1, 1, 3, 3, 1, 2, 1, 2, 3, 4, 5, 5, 5, 8};
+      long[] rownumArr = {1, 1, 3, 3, 1, 2, 1, 2, 3, 4, 5, 5, 5, 8};
 
       // look at records
       RecordBatchLoader batchLoader = new RecordBatchLoader(bit.getContext().getAllocator());
@@ -231,9 +231,9 @@ public class TestWindowFrame extends PopUnitTestBase {
         recordCount++;
         VectorWrapper<?> wrapper = batchLoader.getValueAccessorById(
             BigIntVector.class,
-            batchLoader.getValueVectorId(new SchemaPath(new PathSegment.NameSegment("rank_win"))).getFieldIds()[0]
+            batchLoader.getValueVectorId(new SchemaPath(new PathSegment.NameSegment("row_number_win"))).getFieldIds()[0]
         );
-        System.out.println(rankArr[r]+", "+ wrapper.getValueVector().getAccessor().getObject(r));
+        System.out.println(rownumArr[r]+", "+ wrapper.getValueVector().getAccessor().getObject(r));
         assertEquals(1,1);
         //assertEquals(rankArr[r], wrapper.getValueVector().getAccessor().getObject(r));
       }

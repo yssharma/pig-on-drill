@@ -30,7 +30,7 @@
               { ref: "a", expr: "a" }
             ],
             aggregations: [
-              { ref: "rank", expr:"rank_win(b)" }
+              { ref: "rank", expr:"row_number_win()" }
             ]
         },
         {
