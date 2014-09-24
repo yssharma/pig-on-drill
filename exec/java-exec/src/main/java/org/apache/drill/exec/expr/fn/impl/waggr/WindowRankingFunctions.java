@@ -42,7 +42,7 @@ public class WindowRankingFunctions {
   public static class Ntile implements DrillFunc {
 
   }
-  */
+
 
   @FunctionTemplate(name = "row_number_win", scope = FunctionTemplate.FunctionScope.WINDOW_POINT_AGGREGATE)
   public static class RowNumberWin implements DrillWindowPointAggFunc {
@@ -75,4 +75,5 @@ public class WindowRankingFunctions {
       count.value = 0;
     }
   }
+  */
 }

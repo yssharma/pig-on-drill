@@ -48,7 +48,7 @@ public class ${windowfunc.className}Functions {
 
 <#list windowfunc.types as type>
 <#if type.major == "Numeric">
-
+<#if windowfunc.className?matches('.*RankWindow')>
 @FunctionTemplate(name = "${windowfunc.funcName}", scope = FunctionTemplate.FunctionScope.WINDOW_POINT_AGGREGATE)
 public static class ${type.inputType}${windowfunc.className} implements DrillWindowPointAggFunc {
 
@@ -102,6 +102,42 @@ public static class ${type.inputType}${windowfunc.className} implements DrillWin
 
  }
 
+<#elseif windowfunc.className== 'RowNumberWindow'>
+
+@FunctionTemplate(name = "${windowfunc.funcName}", scope = FunctionTemplate.FunctionScope.WINDOW_POINT_AGGREGATE)
+public static class ${type.inputType}${windowfunc.className} implements DrillWindowPointAggFunc {
+
+  @Workspace BigIntHolder count;
+  @Output BigIntHolder row;
+
+  @Override
+  public void setup(RecordBatch b) {
+    count = new ${windowfunc.runningType}Holder();
+    count.value = 0;
+  }
+
+  @Override
+  public void add() {
+    count.value++;
+  }
+
+  @Override
+  public void remove() {
+    count.value--;
+  }
+
+  @Override
+  public void output() {
+    row.value = count.value;
+  }
+
+  @Override
+  public void reset() {
+    count.value = 0;
+  }
+
+ }
+</#if>
 </#if>
 </#list>
 }
