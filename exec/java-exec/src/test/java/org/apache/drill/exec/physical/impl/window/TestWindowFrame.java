@@ -215,7 +215,7 @@ public class TestWindowFrame extends PopUnitTestBase {
               .replace("#{DATA_FILE}", FileUtils.getResourceAsFile("/window/rankData.json").toURI().toString())
       );
 
-      long[] rownumArr = {1, 1, 3, 3, 1, 2, 1, 2, 3, 4, 5, 5, 5, 8};
+      long[] rownumArr = {7, 2, 5};
 
       // look at records
       RecordBatchLoader batchLoader = new RecordBatchLoader(bit.getContext().getAllocator());
@@ -227,20 +227,25 @@ public class TestWindowFrame extends PopUnitTestBase {
       assertTrue(batchLoader.load(batch.getHeader().getDef(), batch.getData()));
       batchLoader.load(batch.getHeader().getDef(), batch.getData());
 
+      long counter = 1L;
+      int index = 0;
       for (int r = 0; r < batchLoader.getRecordCount(); r++) {
         recordCount++;
         VectorWrapper<?> wrapper = batchLoader.getValueAccessorById(
             BigIntVector.class,
-            batchLoader.getValueVectorId(new SchemaPath(new PathSegment.NameSegment("row_number_win"))).getFieldIds()[0]
+            batchLoader.getValueVectorId(new SchemaPath(new PathSegment.NameSegment("rank"))).getFieldIds()[0]
         );
-        System.out.println(rownumArr[r]+", "+ wrapper.getValueVector().getAccessor().getObject(r));
-        assertEquals(1,1);
-        //assertEquals(rankArr[r], wrapper.getValueVector().getAccessor().getObject(r));
+        assertEquals(counter, wrapper.getValueVector().getAccessor().getObject(r));
+        counter += 1;
+        if (counter > rownumArr[index]) {
+          counter = 1L;
+          index += 1;
+        }
       }
       batchLoader.clear();
       batch.release();
 
-      assertEquals(4, recordCount);
+      assertEquals(14, recordCount);
     }
   }
 
