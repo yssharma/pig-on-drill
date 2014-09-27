@@ -149,7 +149,8 @@ public class StreamingWindowFrameRecordBatch extends AbstractSingleRecordBatch<W
     final ClassGenerator<StreamingWindowFramer> cg = CodeGenerator.getRoot(StreamingWindowFramer.TEMPLATE_DEFINITION, context.getFunctionRegistry());
     setupIsSame(cg, keyExprs);
     setupIsSameFromBatch(cg, keyExprs);
-    addRecordValues(cg, valueExprs.toArray(new LogicalExpression[valueExprs.size()]));
+    setupRunAggregationsAdd(cg, valueExprs.toArray(new LogicalExpression[valueExprs.size()]));
+    //setupRunAggregationsRemove(cg, valueExprs.toArray(new LogicalExpression[valueExprs.size()]));
     outputWindowValues(cg, windowExprs);
 
     cg.getBlock("resetValues")._return(JExpr.TRUE);
@@ -207,11 +208,20 @@ public class StreamingWindowFrameRecordBatch extends AbstractSingleRecordBatch<W
     cg.getEvalBlock()._return(JExpr.TRUE);
   }
 
-  private final GeneratorMapping EVAL_INSIDE = GeneratorMapping.create("setupInterior", "addRecord", null, null);
+  private final GeneratorMapping EVAL_INSIDE = GeneratorMapping.create("setupInterior", "runAggregationsAdd", null, null);
   private final GeneratorMapping EVAL_OUTSIDE = GeneratorMapping.create("setupInterior", "outputRecordValues", "resetValues", "cleanup");
   private final MappingSet EVAL = new MappingSet("index", "outIndex", EVAL_INSIDE, EVAL_OUTSIDE, EVAL_INSIDE);
 
-  private void addRecordValues(ClassGenerator<StreamingWindowFramer> cg, LogicalExpression[] valueExprs) {
+  private void setupRunAggregationsAdd(ClassGenerator<StreamingWindowFramer> cg, LogicalExpression[] valueExprs) {
+    cg.setMappingSet(EVAL);
+    for (LogicalExpression ex : valueExprs) {
+      ClassGenerator.HoldingContainer hc = cg.addExpr(ex);
+      cg.getBlock(ClassGenerator.BlockType.EVAL)._if(hc.getValue().eq(JExpr.lit(0)))._then()._return(JExpr.FALSE);
+    }
+    cg.getBlock(ClassGenerator.BlockType.EVAL)._return(JExpr.TRUE);
+  }
+
+  private void setupRunAggregationsRemove(ClassGenerator<StreamingWindowFramer> cg, LogicalExpression[] valueExprs) {
     cg.setMappingSet(EVAL);
     for (LogicalExpression ex : valueExprs) {
       ClassGenerator.HoldingContainer hc = cg.addExpr(ex);

@@ -36,6 +36,8 @@ public abstract class StreamingWindowFrameTemplate implements StreamingWindowFra
   private int previousIndex = 0;
   private int underlyingIndex = -1;
   private int currentIndex;
+  // This value keeps track how many values we've included so far in the window following.
+  private int precedingWindowCount = 0;
   private boolean pendingOutput = false;
   private RecordBatch.IterOutcome outcome;
   private int outputCount = 0;
@@ -110,6 +112,7 @@ public abstract class StreamingWindowFrameTemplate implements StreamingWindowFra
         // loop through existing records, adding as necessary.
         while(incIndex()) {
           if (previousBatch != null) {
+            // Check the last row of previous record batch matches the current within
             boolean isSameFromBatch = isSameFromBatch(previousIndex, previousBatch, currentIndex);
             if (EXTRA_DEBUG) {
               logger.trace("Same as previous batch: {}, previous index {}, current index {}", isSameFromBatch, previousIndex, currentIndex);
@@ -117,14 +120,28 @@ public abstract class StreamingWindowFrameTemplate implements StreamingWindowFra
 
             if(!isSameFromBatch) {
               resetValues();
+              precedingWindowCount = 0;
+            } else {
+              precedingWindowCount += 1;
             }
+
             previousBatch.clear();
             previousBatch = null;
-          } else if (!isSame(previousIndex, currentIndex)) {
-            resetValues();
+          } else {
+            if (!isSame(previousIndex, currentIndex)) {
+              resetValues();
+              precedingWindowCount = 0;
+            } else {
+              precedingWindowCount += 1;
+            }
           }
 
-          addRecord(currentIndex);
+          if (precedingConfig > -1 && precedingWindowCount> precedingConfig) {
+            // Expire outdated the last window value.
+            runAggegationsRemove(currentIndex - 1);
+          }
+
+          runAggregationsAdd(currentIndex);
 
           if (!outputToBatch(currentIndex)) {
             if (outputCount == 0) {
@@ -277,7 +294,8 @@ public abstract class StreamingWindowFrameTemplate implements StreamingWindowFra
    * @return does within value match
    */
   public abstract boolean isSameFromBatch(@Named("b1Index") int b1Index, @Named("b1") InternalBatch b1, @Named("b2Index") int index2);
-  public abstract void addRecord(@Named("index") int index);
+  public abstract void runAggregationsAdd(@Named("index") int index);
+  public abstract void runAggegationsRemove(@Named("index") int index);
   public abstract boolean outputRecordValues(@Named("outIndex") int outIndex);
   public abstract boolean outputWindowValues(@Named("inIndex") int inIndex, @Named("outIndex") int outIndex);
   public abstract int getVectorIndex(@Named("recordIndex") int recordIndex);
