@@ -31,7 +31,8 @@
             ],
             aggregations: [
               { ref: "rank", expr:"row_number_win()" }
-            ]
+            ],
+            start:1
         },
         {
             @id: 4,

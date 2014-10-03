@@ -68,7 +68,8 @@ public @interface FunctionTemplate {
     DECIMAL_SET_SCALE,
     DECIMAL_ZERO_SCALE,
     SC_BOOLEAN_OPERATOR,
-    WINDOW_POINT_AGGREGATE
+    WINDOW_POINT_AGGREGATE,
+    WINDOW_FUNC_NO_OFFSETS
   }
 
   public static enum FunctionCostCategory {
