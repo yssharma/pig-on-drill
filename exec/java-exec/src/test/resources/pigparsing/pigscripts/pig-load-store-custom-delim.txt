@@ -1,0 +1,11 @@
+nations = LOAD 'exec/java-exec/src/test/resources/store/text/data/nations_caratseparated.txt'
+                USING PigStorage('^') AS
+                (
+                nation_id : int,
+                nation_name : chararray,
+                zone_id : int,
+                comment : chararray
+                );
+
+-- Currently only dumps on --SCREEN--
+store nations into 'SCREEN';

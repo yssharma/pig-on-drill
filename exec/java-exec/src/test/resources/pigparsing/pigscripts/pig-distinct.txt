@@ -1,0 +1,11 @@
+regions = LOAD 'exec/java-exec/src/test/resources/store/text/data/regions_withduplicate.csv'
+                USING PigStorage(',') AS
+                (
+                zone_id : int,
+                zone_name : chararray
+                );
+
+r2 = distinct regions;
+
+-- Currently only dumps on --SCREEN--
+store r2 into 'SCREEN';

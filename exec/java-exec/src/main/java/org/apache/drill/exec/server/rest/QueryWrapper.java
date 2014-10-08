@@ -71,6 +71,7 @@ public class QueryWrapper {
       case "SQL" : type = UserBitShared.QueryType.SQL; break;
       case "LOGICAL" : type = UserBitShared.QueryType.LOGICAL; break;
       case "PHYSICAL" : type = UserBitShared.QueryType.PHYSICAL; break;
+      case "PIGLATIN" : type = UserBitShared.QueryType.PIGLATIN; break;
     }
     return type;
   }

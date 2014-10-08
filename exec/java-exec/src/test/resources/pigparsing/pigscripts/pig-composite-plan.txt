@@ -1,0 +1,31 @@
+regions = LOAD 'exec/java-exec/src/test/resources/store/text/data/regions_withduplicate.csv'
+                USING PigStorage(',') AS
+                (
+                zone_id : int,
+                zone_name : chararray
+                );
+
+regions = DISTINCT regions;
+r2 = LIMIT regions 30;
+r3 = LIMIT regions 10;
+
+nations = LOAD 'exec/java-exec/src/test/resources/store/text/data/nations_caratseparated.txt'
+                USING PigStorage('^') AS
+                (
+                nation_id : int,
+                nation_name : chararray,
+                zone_id : int,
+                comment : chararray
+                );
+
+-- JOIN Currently only works with named aliases not indexes
+joined = JOIN regions BY zone_id , nations BY zone_id;
+joined = LIMIT joined 20;
+
+filtered = FILTER joined BY regions::zone_name=='ASIA' or nations::nation_id==3;
+
+-- LogicalConverter does not currently support visiting the PhysicalOperator type Union
+-- r_union = UNION r2, r3;
+
+-- Currently only dumps on --SCREEN--
+store filtered into 'SCREEN';

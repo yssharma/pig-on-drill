@@ -231,7 +231,7 @@
             <option>-keep class org.slf4j.** { *; }</option>
             <option>-keep class * implements com.fasterxml.jackson.databind.cfg.ConfigFeature { *; }</option>
             <option>-keep class * implements com.fasterxml.jackson.databind.jsontype.TypeIdResolver { *; }</option>
-            <!-- do not mess with enums, Java doesn't like it -->
+           <!-- do not mess with enums, Java doesn't like it -->
             <option>-keep enum ** { *; }</option>
           </options>
           <libs>

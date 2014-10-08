@@ -1,0 +1,10 @@
+regions = LOAD 'exec/java-exec/src/test/resources/store/text/data/regions.csv'
+                USING PigStorage(',') AS
+                (
+                zone_id : int,
+                zone_name : chararray,
+                comment : chararray
+                );
+
+-- Currently only dumps on --SCREEN--
+store regions into 'SCREEN';

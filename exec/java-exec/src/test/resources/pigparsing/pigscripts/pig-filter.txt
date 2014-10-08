@@ -1,0 +1,12 @@
+regions = LOAD 'exec/java-exec/src/test/resources/store/text/data/regions.csv'
+                USING PigStorage(',') AS
+                (
+                zone_id : int,
+                zone_name : chararray,
+                comment : chararray
+                );
+
+filtered = FILTER regions BY (zone_id==0 or zone_id==2 or zone_id==(2+2)) and zone_name!='ASIA';
+
+-- Currently only dumps on --SCREEN--
+store filtered into 'SCREEN';

@@ -42,6 +42,12 @@
           LOGICAL
         </label>
       </div>
+      <div class="radio">
+          <label>
+          <input type="radio" name="queryType" id="piglatin" value="PIGLATIN">
+          PIGLATIN (Alpha)
+          </label>
+      </div>
     </div>
     <div class="form-group">
       <label for="query">Query</label>

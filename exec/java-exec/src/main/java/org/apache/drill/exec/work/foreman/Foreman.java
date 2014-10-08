@@ -46,6 +46,8 @@ import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.config.ExternalSort;
 import org.apache.drill.exec.physical.impl.SendingAccountor;
 import org.apache.drill.exec.physical.impl.materialize.QueryWritableBatch;
+import org.apache.drill.exec.pigparser.planconverter.PigPlanTranslator;
+import org.apache.drill.exec.pigparser.util.PigParserUtil;
 import org.apache.drill.exec.planner.fragment.Fragment;
 import org.apache.drill.exec.planner.fragment.MakeFragmentsVisitor;
 import org.apache.drill.exec.planner.fragment.PlanningSet;
@@ -218,6 +220,9 @@ public class Foreman implements Runnable, Closeable, Comparable<Object>{
       case SQL:
         runSQL(queryRequest.getPlan());
         break;
+      case PIGLATIN:
+        parseAndRunPigLatin(queryRequest.getPlan());
+        break;
       default:
         throw new UnsupportedOperationException();
       }
@@ -243,6 +248,20 @@ public class Foreman implements Runnable, Closeable, Comparable<Object>{
     }
 
   }
+  private void parseAndRunPigLatin(String text) {
+    try {
+        LogicalPlan logicalPlan = new PigPlanTranslator().toDrillLogicalPlan(text, PigParserUtil.PigExecType.LOCALFILE);
+
+        if(null == logicalPlan){
+            fail("Failure in converting Pig script to Drill Logical Plan.", new Exception());
+        }
+
+        parseAndRunLogicalPlan(logicalPlan.toJsonString(DrillConfig.create()));
+
+    } catch (Exception e){
+        fail("Failure in parsing script.", e);
+    }
+    }
   private void parseAndRunLogicalPlan(String json) {
 
     try {

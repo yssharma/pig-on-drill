@@ -33,7 +33,7 @@
   <modules>
     <module>java-exec</module>
     <module>jdbc</module>
-    <module>jdbc-all</module>
+    <!-- <module>jdbc-all</module> -->
     <module>interpreter</module>
   </modules>
 </project>
