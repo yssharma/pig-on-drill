@@ -26,7 +26,24 @@
     <!-- <artifactId>asm-util</artifactId> -->
     <!-- <version>5.0.3</version> -->
     <!-- </dependency> -->
-    <dependency>
+      <dependency>
+          <groupId>org.apache.pig</groupId>
+          <artifactId>pig</artifactId>
+          <version>0.13.0</version>
+          <exclusions>
+              <exclusion>
+                  <groupId>commons-logging</groupId>
+                  <artifactId>commons-logging</artifactId>
+              </exclusion>
+
+          </exclusions>
+      </dependency>
+      <dependency>
+        <groupId>jline</groupId>
+        <artifactId>jline</artifactId>
+        <version>1.0</version>
+      </dependency>
+      <dependency>
       <groupId>org.ow2.asm</groupId>
       <artifactId>asm-debug-all</artifactId>
       <version>5.0.3</version>
@@ -49,6 +66,7 @@
     <!-- <artifactId>asm-commons</artifactId> -->
     <!-- <version>5.0.3</version> -->
     <!-- </dependency> -->
+
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-pool2</artifactId>
@@ -263,6 +281,7 @@
     <!-- <version>${project.version}</version> -->
     <!-- <artifactId>drill-buffers</artifactId> -->
     <!-- </dependency> -->
+
     <dependency>
       <groupId>org.apache.drill</groupId>
       <artifactId>drill-common</artifactId>
@@ -573,11 +592,18 @@
               <artifactSet>
                 <includes>
                   <include>com.google.protobuf:protobuf-java</include>
+                  <include>jline:jline</include>
                 </includes>
               </artifactSet>
               <shadedArtifactAttached>true</shadedArtifactAttached>
               <shadedClassifierName>rebuffed</shadedClassifierName>
               <filters>
+                <filter>
+                  <artifact>jline:jline</artifact>
+                    <includes>
+                        <include>**</include>
+                    </includes>
+                </filter>
                 <filter>
                   <artifact>com.google.protobuf:protobuf-java</artifact>
                   <excludes>

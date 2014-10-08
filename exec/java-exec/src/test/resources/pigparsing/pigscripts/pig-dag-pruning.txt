@@ -1,0 +1,16 @@
+regions = LOAD 'exec/java-exec/src/test/resources/store/text/data/regions.csv'
+                USING PigStorage(',') AS
+                (
+                zone_id : int,
+                zone_name : chararray,
+                comment : chararray
+                );
+
+r = limit regions 10;    -- unterminated branch, should be pruned at drill's end
+r2 = distinct r;         -- unterminated branch, should be pruned at drill's end
+r3 = limit r 5;          -- unterminated branch, should be pruned at drill's end
+
+-- Currently only dumps on --SCREEN--
+store regions into 'SCREEN';
+
+dist = DISTINCT regions;-- unterminated branch, should be pruned at drill's end

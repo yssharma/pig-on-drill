@@ -25,13 +25,16 @@ public enum RpcType implements com.dyuproject.protostuff.EnumLite<RpcType>
     HANDSHAKE(0),
     ACK(1),
     GOODBYE(2),
-    RUN_QUERY(3),
-    CANCEL_QUERY(4),
-    REQUEST_RESULTS(5),
-    QUERY_RESULT(6),
-    QUERY_HANDLE(7),
-    REQ_META_FUNCTIONS(8),
-    RESP_FUNCTION_LIST(9);
+    REQ_INIATILIZE_FRAGMENT(3),
+    REQ_CANCEL_FRAGMENT(6),
+    REQ_RECEIVER_FINISHED(7),
+    REQ_FRAGMENT_STATUS(8),
+    REQ_BIT_STATUS(9),
+    REQ_QUERY_STATUS(10),
+    RESP_FRAGMENT_HANDLE(11),
+    RESP_FRAGMENT_STATUS(12),
+    RESP_BIT_STATUS(13),
+    RESP_QUERY_STATUS(14);
     
     public final int number;
     
@@ -52,13 +55,16 @@ public enum RpcType implements com.dyuproject.protostuff.EnumLite<RpcType>
             case 0: return HANDSHAKE;
             case 1: return ACK;
             case 2: return GOODBYE;
-            case 3: return RUN_QUERY;
-            case 4: return CANCEL_QUERY;
-            case 5: return REQUEST_RESULTS;
-            case 6: return QUERY_RESULT;
-            case 7: return QUERY_HANDLE;
-            case 8: return REQ_META_FUNCTIONS;
-            case 9: return RESP_FUNCTION_LIST;
+            case 3: return REQ_INIATILIZE_FRAGMENT;
+            case 6: return REQ_CANCEL_FRAGMENT;
+            case 7: return REQ_RECEIVER_FINISHED;
+            case 8: return REQ_FRAGMENT_STATUS;
+            case 9: return REQ_BIT_STATUS;
+            case 10: return REQ_QUERY_STATUS;
+            case 11: return RESP_FRAGMENT_HANDLE;
+            case 12: return RESP_FRAGMENT_STATUS;
+            case 13: return RESP_BIT_STATUS;
+            case 14: return RESP_QUERY_STATUS;
             default: return null;
         }
     }

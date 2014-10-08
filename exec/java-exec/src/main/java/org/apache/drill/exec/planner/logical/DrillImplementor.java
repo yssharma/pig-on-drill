@@ -67,6 +67,7 @@ public class DrillImplementor {
     if(plan == null){
       plan = planBuilder.build();
       planBuilder = null;
+
     }
     return plan;
   }

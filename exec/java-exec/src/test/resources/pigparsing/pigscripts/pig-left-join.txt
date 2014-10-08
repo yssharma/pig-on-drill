@@ -1,0 +1,21 @@
+regions = LOAD 'exec/java-exec/src/test/resources/store/text/data/regions_withduplicate.csv'
+                USING PigStorage(',') AS
+                (
+                zone_id : int,
+                zone_name : chararray
+                );
+
+nations = LOAD 'exec/java-exec/src/test/resources/store/text/data/nations_caratseparated.txt'
+                USING PigStorage('^') AS
+                (
+                nation_id : int,
+                nation_name : chararray,
+                zone_id : int,
+                comment : chararray
+                );
+
+-- JOIN Currently only works with named aliases not indexes
+joined = JOIN regions BY zone_id left outer , nations BY zone_id;
+
+-- Currently only dumps on --SCREEN--
+store joined into 'SCREEN';
