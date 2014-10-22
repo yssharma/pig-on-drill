@@ -6,12 +6,14 @@ https://reviews.apache.org/r/26769/
 
 Operators Supported:
 LOAD, STORE, FILTER, UNION, JOIN, DISTINCT, LIMIT.
+
 Future work:
 FOREACH and GROUP is not supported yet.
 
 
 TestCases:
-org.apache.drill.exec.pigparser.TestPigLatinOperators
+org.apache.drill.exec.pigparser.TestPigLatinOperators.
+
 Pig Scripts can be tested on Drill's web interface as well (localhost:8047/query).
 
 Fact check:
