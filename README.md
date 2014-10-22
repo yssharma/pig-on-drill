@@ -5,7 +5,7 @@ Review Board:
 https://reviews.apache.org/r/26769/
 
 Operators Supported:
-LOAD, STORE, FILTER, UNION, JOIN, DISTINCT, LIMIT
+LOAD, STORE, FILTER, UNION, JOIN, DISTINCT, LIMIT.
 Future work:
 FOREACH and GROUP is not supported yet.
 
