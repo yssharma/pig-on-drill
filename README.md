@@ -1,3 +1,24 @@
+# Pig Scripts on Apache Drill
+This is an initial work on supporting Pig scripts on Drill. It extends the PigServer to get a Pig logical plan for a input pig script. It then converts the Pig logical plan to Drill logical plan.
+
+Review Board:
+https://reviews.apache.org/r/26769/
+
+Operators Supported:
+LOAD, STORE, FILTER, UNION, JOIN, DISTINCT, LIMIT
+Future work:
+FOREACH and GROUP is not supported yet.
+
+
+TestCases:
+org.apache.drill.exec.pigparser.TestPigLatinOperators
+Pig Scripts can be tested on Drill's web interface as well (localhost:8047/query).
+
+Fact check:
+ * LOAD: Supports delimited text files only. Picks delimeter provided in PigStorage(). Default \t. Reads data from Local Filesystem currently. (pig -x local)
+ * STORE: Only dumps on --SCREEN-- for now.
+ * JOIN: Inner, LeftOuter, RightOuter, FullOuter (not supported by drill currently though). Only supports alias based joins not index based($0 etc).
+
 # Apache Drill
 
 Apache Drill is a distributed MPP query layer that supports SQL and alternative query languages against NoSQL and Hadoop data storage systems.  It was inspired in part by [Google's Dremel](http://research.google.com/pubs/pub36632.html).  It is currently incubating under the Apache Foundation.
